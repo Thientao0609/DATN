@@ -15,6 +15,16 @@ const envSchema = z.object({
   LLM_API_KEY: required('LLM_API_KEY'),
   LLM_MODEL: required('LLM_MODEL'),
   CLINIC_NAME: required('CLINIC_NAME'),
+  // Gửi email (không bắt buộc). Thiếu SMTP_HOST thì email được lưu vào thư mục outbox/.
+  SMTP_HOST: z.string().trim().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  SMTP_USER: z.string().trim().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().trim().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

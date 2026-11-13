@@ -5,9 +5,15 @@ import * as doctors from '../doctors/doctors.admin.service.js';
 import * as schedules from '../schedules/schedules.service.js';
 import * as clinicInfo from './clinic-info.service.js';
 import { getStats } from './stats.service.js';
-import { listAppointmentsForAdmin } from '../appointments/appointments.service.js';
+import {
+  approveReschedule,
+  listAppointmentsForAdmin,
+  listRescheduleRequests,
+  rejectReschedule,
+} from '../appointments/appointments.service.js';
 import {
   appointmentsQuerySchema,
+  rejectRescheduleSchema,
   clinicInfoPatchSchema,
   clinicInfoSchema,
   createDoctorSchema,
@@ -85,6 +91,18 @@ export async function deleteClinicInfo(req: Request, res: Response) {
 // Lịch khám (không có lý do khám)
 export async function listAppointments(req: Request, res: Response) {
   res.json({ appointments: await listAppointmentsForAdmin(appointmentsQuerySchema.parse(req.query)) });
+}
+
+// Yêu cầu đổi lịch
+export async function listRescheduleRequestsHandler(_req: Request, res: Response) {
+  res.json({ requests: await listRescheduleRequests() });
+}
+export async function approveRescheduleHandler(req: Request, res: Response) {
+  res.json({ appointment: await approveReschedule(idOf(req)) });
+}
+export async function rejectRescheduleHandler(req: Request, res: Response) {
+  const { reason } = rejectRescheduleSchema.parse(req.body);
+  res.json(await rejectReschedule(idOf(req), reason));
 }
 
 // Thống kê

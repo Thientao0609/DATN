@@ -6,7 +6,7 @@ import { AppointmentStatus, PendingActionType, Role } from '@prisma/client';
 import { z, ZodError } from 'zod';
 import { AppError } from '../../lib/errors.js';
 import { formatVnDateTime, toVnIso, vnDayOfWeek } from '../../lib/time.js';
-import { dateSchema, dateTimeSchema, idSchema, reasonSchema, toDate } from '../../lib/validation.js';
+import { dateSchema, dateTimeSchema, idSchema, noteSchema, reasonSchema, toDate } from '../../lib/validation.js';
 import { listSpecialties } from '../specialties/specialties.service.js';
 import { getDoctor, searchDoctors } from '../doctors/doctors.service.js';
 import { searchClinicInfo } from '../admin/clinic-info.service.js';
@@ -140,7 +140,10 @@ export const agentTools: AgentTool[] = [
     description: 'Lịch hẹn của người đang trò chuyện. Có thể lọc theo trạng thái.',
     kind: 'read',
     schema: z.object({
-      status: z.enum(AppointmentStatus).optional().describe('CONFIRMED (sắp tới), COMPLETED (đã khám) hoặc CANCELLED (đã hủy)'),
+      status: z
+        .enum([AppointmentStatus.CONFIRMED, AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED])
+        .optional()
+        .describe('CONFIRMED (sắp tới), COMPLETED (đã khám) hoặc CANCELLED (đã hủy)'),
     }),
     execute: async (args, ctx) => {
       const appointments = await listMyAppointments({ id: ctx.userId, role: Role.PATIENT }, args.status);
@@ -153,6 +156,9 @@ export const agentTools: AgentTool[] = [
           startTimeText: formatVnDateTime(new Date(a.startTime)),
           status: a.status,
           reason: a.reason,
+          ...(a.pendingChange
+            ? { pendingChange: `Đang chờ phòng khám xác nhận yêu cầu đổi sang ${formatVnDateTime(new Date(a.pendingChange.startTime))}` }
+            : {}),
         })),
       };
     },
@@ -203,21 +209,29 @@ export const agentTools: AgentTool[] = [
 
   defineTool({
     name: 'propose_reschedule',
-    description: 'Đề xuất đổi một lịch hẹn (appointmentId từ get_my_appointments) sang khung giờ mới (từ get_available_slots). Người dùng phải bấm Đồng ý.',
+    description:
+      'Đề xuất gửi yêu cầu đổi một lịch hẹn (appointmentId từ get_my_appointments) sang khung giờ mới (từ get_available_slots). Hỏi người dùng lý do đổi lịch trước khi gọi. Người dùng phải bấm Đồng ý; sau đó yêu cầu còn chờ phòng khám xác nhận, lịch cũ vẫn được giữ trong lúc chờ.',
     kind: 'propose',
     schema: z.object({
       appointmentId: idSchema.describe('Mã lịch hẹn'),
       newStartTime: dateTimeSchema.describe('Giờ bắt đầu mới, lấy từ get_available_slots'),
+      changeReason: noteSchema('lý do đổi lịch').describe('Lý do đổi lịch do người dùng nêu, 5-500 ký tự'),
     }),
     execute: async (args, ctx) => {
-      const checked = await checkReschedule({ patientId: ctx.userId, appointmentId: args.appointmentId, newStartTime: toDate(args.newStartTime) }, ctx.now);
+      const checked = await checkReschedule(
+        { patientId: ctx.userId, appointmentId: args.appointmentId, newStartTime: toDate(args.newStartTime), reason: args.changeReason },
+        ctx.now,
+      );
       const action = await createPendingAction({
         sessionId: ctx.sessionId,
         userId: ctx.userId,
         now: ctx.now,
-        action: { type: PendingActionType.RESCHEDULE, input: { appointmentId: checked.appointment.id, newStartTime: toVnIso(checked.newStartTime) } },
+        action: {
+          type: PendingActionType.RESCHEDULE,
+          input: { appointmentId: checked.appointment.id, newStartTime: toVnIso(checked.newStartTime), reason: checked.reason },
+        },
         summary: {
-          title: 'Đổi lịch khám',
+          title: 'Yêu cầu đổi lịch khám',
           doctorName: checked.appointment.doctor.fullName,
           specialtyName: checked.appointment.doctor.specialty.name,
           startTime: toVnIso(checked.newStartTime),
@@ -225,29 +239,36 @@ export const agentTools: AgentTool[] = [
           oldStartTime: checked.appointment.startTime,
           oldStartTimeText: formatVnDateTime(new Date(checked.appointment.startTime)),
           reason: checked.appointment.reason,
+          changeReason: checked.reason,
         },
       });
       ctx.createdPendingActionId = action.id;
       return {
         pendingActionId: action.id,
-        summary: `Đổi lịch với bác sĩ ${action.summary.doctorName} từ ${action.summary.oldStartTimeText} sang ${action.summary.startTimeText}.`,
-        note: CONFIRM_NOTE,
+        summary: `Yêu cầu đổi lịch với bác sĩ ${action.summary.doctorName} từ ${action.summary.oldStartTimeText} sang ${action.summary.startTimeText}. Lý do: ${checked.reason}.`,
+        note: `${CONFIRM_NOTE} Sau khi người dùng đồng ý, yêu cầu còn chờ phòng khám xác nhận; trong lúc chờ lịch cũ vẫn được giữ.`,
       };
     },
   }),
 
   defineTool({
     name: 'propose_cancel',
-    description: 'Đề xuất hủy một lịch hẹn (appointmentId từ get_my_appointments). Người dùng phải bấm Đồng ý.',
+    description: 'Đề xuất hủy một lịch hẹn (appointmentId từ get_my_appointments). Hỏi người dùng lý do hủy trước khi gọi. Người dùng phải bấm Đồng ý.',
     kind: 'propose',
-    schema: z.object({ appointmentId: idSchema.describe('Mã lịch hẹn') }),
+    schema: z.object({
+      appointmentId: idSchema.describe('Mã lịch hẹn'),
+      cancelReason: noteSchema('lý do hủy lịch').describe('Lý do hủy do người dùng nêu, 5-500 ký tự'),
+    }),
     execute: async (args, ctx) => {
-      const appt = await checkCancel({ patientId: ctx.userId, appointmentId: args.appointmentId }, ctx.now);
+      const { appointment: appt, reason: cancelReason } = await checkCancel(
+        { patientId: ctx.userId, appointmentId: args.appointmentId, reason: args.cancelReason },
+        ctx.now,
+      );
       const action = await createPendingAction({
         sessionId: ctx.sessionId,
         userId: ctx.userId,
         now: ctx.now,
-        action: { type: PendingActionType.CANCEL, input: { appointmentId: appt.id } },
+        action: { type: PendingActionType.CANCEL, input: { appointmentId: appt.id, reason: cancelReason } },
         summary: {
           title: 'Hủy lịch khám',
           doctorName: appt.doctor.fullName,
@@ -255,12 +276,13 @@ export const agentTools: AgentTool[] = [
           startTime: appt.startTime,
           startTimeText: formatVnDateTime(new Date(appt.startTime)),
           reason: appt.reason,
+          changeReason: cancelReason,
         },
       });
       ctx.createdPendingActionId = action.id;
       return {
         pendingActionId: action.id,
-        summary: `Hủy lịch với bác sĩ ${action.summary.doctorName} vào ${action.summary.startTimeText}.`,
+        summary: `Hủy lịch với bác sĩ ${action.summary.doctorName} vào ${action.summary.startTimeText}. Lý do: ${cancelReason}.`,
         note: CONFIRM_NOTE,
       };
     },

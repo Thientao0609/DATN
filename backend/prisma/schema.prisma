@@ -20,6 +20,8 @@ enum AppointmentStatus {
   CONFIRMED
   CANCELLED
   COMPLETED
+  // Chỉ dùng cho bản ghi giữ chỗ của một yêu cầu đổi lịch đang chờ admin duyệt.
+  PENDING
 }
 
 enum CreatedVia {
@@ -128,11 +130,28 @@ model Appointment {
   // Unique index cho phép nhiều giá trị null nên lịch đã hủy không chặn lịch mới.
   // Chỉ service được ghi cột này.
   activeKey  Int?              @default(1)
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
 
-  patient User   @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  doctor  Doctor @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  // Yêu cầu đổi lịch: bản ghi giữ chỗ (status PENDING) trỏ tới lịch gốc qua rescheduleOfId.
+  // Lịch gốc vẫn giữ giờ cũ cho tới khi admin duyệt.
+  rescheduleOfId     String?   @unique
+  // Lý do người bệnh nhập khi đổi lịch (trên bản ghi giữ chỗ, và trên lịch gốc sau khi duyệt).
+  changeReason       String?   @db.Text
+  // Giờ cũ của lịch sau khi đổi được duyệt.
+  previousStartTime  DateTime?
+  // Lần từ chối đổi lịch gần nhất (admin): giờ đã yêu cầu, lý do, thời điểm.
+  rejectedStartTime  DateTime?
+  changeRejectReason String?   @db.Text
+  changeRejectedAt   DateTime?
+  // Lý do người bệnh nhập khi hủy lịch.
+  cancelReason       String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient        User         @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  doctor         Doctor       @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  rescheduleOf   Appointment? @relation("RescheduleHold", fields: [rescheduleOfId], references: [id], onDelete: Cascade)
+  rescheduleHold Appointment? @relation("RescheduleHold")
 
   @@unique([doctorId, startTime, activeKey])
   @@index([patientId, startTime])

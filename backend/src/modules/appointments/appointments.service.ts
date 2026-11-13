@@ -1,14 +1,22 @@
 /**
  * Toàn bộ nghiệp vụ đặt lịch. REST API và tools của agent dùng chung các hàm trong file này.
+ *
+ * Đổi lịch cần admin duyệt: yêu cầu đổi lịch tạo một bản ghi giữ chỗ (status PENDING,
+ * rescheduleOfId = lịch gốc) ở giờ mới, nên khung giờ mới cũng được unique index bảo vệ.
+ * Lịch gốc giữ giờ cũ cho tới khi admin duyệt (cập nhật chính bản ghi gốc sang giờ mới)
+ * hoặc từ chối (xóa bản ghi giữ chỗ, gửi email báo cho bệnh nhân).
  */
 import { AppointmentStatus, CreatedVia, Prisma, Role } from '@prisma/client';
+import { env } from '../../config/env.js';
 import { prisma, type Db } from '../../lib/prisma.js';
 import { AppError, forbidden, isPrismaError, notFound } from '../../lib/errors.js';
-import { reasonSchema } from '../../lib/validation.js';
+import { getMailer } from '../../lib/mailer.js';
+import { noteSchema, reasonSchema } from '../../lib/validation.js';
 import {
   DAY_MS,
   HOUR_MS,
   MINUTE_MS,
+  formatVnDateTime,
   isValidDateString,
   timeToMinutes,
   toVnDateString,
@@ -30,6 +38,9 @@ export const BOOKING_RULES = {
 } as const;
 
 const MSG_SLOT_TAKEN = 'Khung giờ này vừa có người đặt. Vui lòng chọn khung giờ khác.';
+export const changeReasonSchema = noteSchema('lý do đổi lịch');
+export const cancelReasonSchema = noteSchema('lý do hủy lịch');
+export const rejectReasonSchema = noteSchema('lý do từ chối');
 
 // ---------------------------------------------------------------------------
 // DTO
@@ -45,11 +56,13 @@ export const appointmentInclude = {
     },
   },
   patient: { select: { id: true, fullName: true, phone: true } },
+  rescheduleHold: { select: { id: true, startTime: true, endTime: true, changeReason: true, createdAt: true } },
 } satisfies Prisma.AppointmentInclude;
 
 export type AppointmentWithRelations = Prisma.AppointmentGetPayload<{ include: typeof appointmentInclude }>;
 
 export function toAppointmentDto(a: AppointmentWithRelations) {
+  const hold = a.rescheduleHold;
   return {
     id: a.id,
     startTime: toVnIso(a.startTime),
@@ -58,6 +71,21 @@ export function toAppointmentDto(a: AppointmentWithRelations) {
     status: a.status,
     createdVia: a.createdVia,
     createdAt: a.createdAt.toISOString(),
+    /** Khác null khi đây là bản ghi giữ chỗ của một yêu cầu đổi lịch. */
+    rescheduleOfId: a.rescheduleOfId,
+    /** Yêu cầu đổi lịch đang chờ admin duyệt. */
+    pendingChange: hold
+      ? { startTime: toVnIso(hold.startTime), endTime: toVnIso(hold.endTime), reason: hold.changeReason ?? '', requestedAt: hold.createdAt.toISOString() }
+      : null,
+    /** Lần đổi lịch đã được duyệt gần nhất. */
+    changeReason: a.changeReason,
+    previousStartTime: a.previousStartTime ? toVnIso(a.previousStartTime) : null,
+    /** Lần từ chối đổi lịch gần nhất. */
+    changeRejection:
+      a.changeRejectedAt && a.rejectedStartTime
+        ? { requestedStartTime: toVnIso(a.rejectedStartTime), reason: a.changeRejectReason ?? '', at: a.changeRejectedAt.toISOString() }
+        : null,
+    cancelReason: a.cancelReason,
     doctor: {
       id: a.doctor.id,
       fullName: a.doctor.user.fullName,
@@ -128,6 +156,7 @@ export async function getAvailableSlots(doctorId: string, date: string, now: Dat
 
   const dayStart = vnDateMinutesToUtc(date, 0);
   const dayEnd = new Date(dayStart.getTime() + DAY_MS);
+  // activeKey = 1 gồm cả bản ghi giữ chỗ của yêu cầu đổi lịch.
   const booked = await prisma.appointment.findMany({
     where: { doctorId, activeKey: 1, startTime: { lt: dayEnd }, endTime: { gt: dayStart } },
     select: { startTime: true, endTime: true },
@@ -158,15 +187,15 @@ async function assertBookableSlot(db: Db, doctor: DoctorSlotInfo, start: Date, n
   return slot.end;
 }
 
-/** Khung giờ của bác sĩ chưa thuộc lịch hẹn chưa hủy nào. */
-async function assertSlotFree(db: Db, doctorId: string, range: SlotRange, excludeAppointmentId?: string): Promise<void> {
+/** Khung giờ của bác sĩ chưa thuộc lịch hẹn chưa hủy nào (kể cả bản ghi giữ chỗ). */
+async function assertSlotFree(db: Db, doctorId: string, range: SlotRange, excludeIds: string[] = []): Promise<void> {
   const clash = await db.appointment.findFirst({
     where: {
       doctorId,
       activeKey: 1,
       startTime: { lt: range.end },
       endTime: { gt: range.start },
-      ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
+      ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
     },
     select: { id: true },
   });
@@ -174,13 +203,14 @@ async function assertSlotFree(db: Db, doctorId: string, range: SlotRange, exclud
 }
 
 /** Bệnh nhân không có lịch chưa hủy trùng giờ và có ít hơn 3 lịch CONFIRMED sắp tới. */
-async function assertPatientCanBook(db: Db, patientId: string, range: SlotRange, now: Date, excludeAppointmentId?: string): Promise<void> {
-  const exclude = excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {};
+async function assertPatientCanBook(db: Db, patientId: string, range: SlotRange, now: Date, excludeIds: string[] = []): Promise<void> {
+  const exclude = excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {};
   const overlap = await db.appointment.findFirst({
     where: { patientId, activeKey: 1, startTime: { lt: range.end }, endTime: { gt: range.start }, ...exclude },
     select: { id: true },
   });
   if (overlap) throw new AppError('BOOKING_LIMIT', 'Bạn đã có một lịch hẹn khác trùng giờ này.');
+  // Bản ghi giữ chỗ có status PENDING nên không bị đếm hai lần.
   const upcoming = await db.appointment.count({
     where: { patientId, status: AppointmentStatus.CONFIRMED, startTime: { gt: now }, ...exclude },
   });
@@ -194,10 +224,11 @@ const changeableInclude = {
   doctor: { select: { ...appointmentInclude.doctor.select, slotMinutes: true } },
 } satisfies Prisma.AppointmentInclude;
 
-/** Lịch thuộc về bệnh nhân, đang CONFIRMED và còn trước giờ khám ít nhất 2 giờ. */
+/** Lịch gốc thuộc về bệnh nhân, đang CONFIRMED và còn trước giờ khám ít nhất 2 giờ. */
 async function loadChangeableAppointment(db: Db, patientId: string, appointmentId: string, now: Date) {
   const appt = await db.appointment.findUnique({ where: { id: appointmentId }, include: changeableInclude });
-  if (!appt) throw notFound('Không tìm thấy lịch hẹn.');
+  // Bản ghi giữ chỗ không phải lịch hẹn của người dùng.
+  if (!appt || appt.rescheduleOfId) throw notFound('Không tìm thấy lịch hẹn.');
   if (appt.patientId !== patientId) throw forbidden('Bạn chỉ được thay đổi lịch hẹn của chính mình.');
   if (appt.status !== AppointmentStatus.CONFIRMED) {
     throw new AppError('INVALID_STATUS', 'Chỉ đổi hoặc hủy được lịch hẹn đang ở trạng thái đã xác nhận.');
@@ -232,6 +263,10 @@ async function runBookingTx<T>(fn: (tx: Db) => Promise<T>): Promise<T> {
       throw err;
     }
   }
+}
+
+async function loadDto(db: Db, id: string): Promise<AppointmentDto> {
+  return toAppointmentDto(await db.appointment.findUniqueOrThrow({ where: { id }, include: appointmentInclude }));
 }
 
 // ---------------------------------------------------------------------------
@@ -291,13 +326,15 @@ export async function createAppointment(
 }
 
 // ---------------------------------------------------------------------------
-// Đổi lịch
+// Đổi lịch: bệnh nhân gửi yêu cầu, admin duyệt hoặc từ chối
 // ---------------------------------------------------------------------------
 
 export interface RescheduleInput {
   patientId: string;
   appointmentId: string;
   newStartTime: Date;
+  reason: string;
+  createdVia?: CreatedVia;
 }
 
 async function validateReschedule(db: Db, input: RescheduleInput, now: Date) {
@@ -307,28 +344,186 @@ async function validateReschedule(db: Db, input: RescheduleInput, now: Date) {
   }
   const end = await assertBookableSlot(db, { id: appt.doctorId, slotMinutes: appt.doctor.slotMinutes }, input.newStartTime, now);
   const range = { start: input.newStartTime, end };
-  await assertSlotFree(db, appt.doctorId, range, appt.id);
-  await assertPatientCanBook(db, input.patientId, range, now, appt.id);
+  // Bỏ qua chính lịch gốc và yêu cầu đổi lịch cũ của nó (sẽ được thay).
+  const exclude = [appt.id, ...(appt.rescheduleHold ? [appt.rescheduleHold.id] : [])];
+  await assertSlotFree(db, appt.doctorId, range, exclude);
+  await assertPatientCanBook(db, input.patientId, range, now, exclude);
   return { appointment: appt, range };
 }
 
-/** Kiểm tra đổi lịch mà không ghi gì. */
+/** Kiểm tra yêu cầu đổi lịch mà không ghi gì. */
 export async function checkReschedule(input: RescheduleInput, now: Date = new Date()) {
+  const reason = changeReasonSchema.parse(input.reason);
   const { appointment, range } = await validateReschedule(prisma, input, now);
-  return { appointment: toAppointmentDto(appointment), newStartTime: range.start, newEndTime: range.end };
+  return { appointment: toAppointmentDto(appointment), newStartTime: range.start, newEndTime: range.end, reason };
 }
 
-export async function rescheduleAppointment(input: RescheduleInput, now: Date = new Date()): Promise<AppointmentDto> {
+/**
+ * Gửi yêu cầu đổi lịch: giữ chỗ khung giờ mới, lịch gốc vẫn ở giờ cũ cho tới khi admin duyệt.
+ * Gửi yêu cầu mới sẽ thay yêu cầu cũ đang chờ.
+ */
+export async function requestReschedule(input: RescheduleInput, now: Date = new Date()): Promise<AppointmentDto> {
+  const reason = changeReasonSchema.parse(input.reason);
   return runBookingTx(async (tx) => {
     await lockPatient(tx, input.patientId);
     const { appointment, range } = await validateReschedule(tx, input, now);
-    const updated = await tx.appointment.update({
-      where: { id: appointment.id },
-      data: { startTime: range.start, endTime: range.end },
-      include: appointmentInclude,
+    if (appointment.rescheduleHold) await tx.appointment.delete({ where: { id: appointment.rescheduleHold.id } });
+    await tx.appointment.create({
+      data: {
+        patientId: appointment.patientId,
+        doctorId: appointment.doctorId,
+        startTime: range.start,
+        endTime: range.end,
+        reason: appointment.reason,
+        status: AppointmentStatus.PENDING,
+        createdVia: input.createdVia ?? CreatedVia.FORM,
+        activeKey: 1,
+        rescheduleOfId: appointment.id,
+        changeReason: reason,
+      },
     });
-    return toAppointmentDto(updated);
+    // Yêu cầu mới thay cho lần từ chối trước đó (nếu có).
+    await tx.appointment.update({
+      where: { id: appointment.id },
+      data: { rejectedStartTime: null, changeRejectReason: null, changeRejectedAt: null },
+    });
+    return loadDto(tx, appointment.id);
   });
+}
+
+async function loadPendingRequest(tx: Db, appointmentId: string) {
+  const appt = await tx.appointment.findUnique({
+    where: { id: appointmentId },
+    include: {
+      rescheduleHold: true,
+      patient: { select: { id: true, email: true, fullName: true } },
+      doctor: { select: { user: { select: { fullName: true } }, specialty: { select: { name: true } } } },
+    },
+  });
+  if (!appt || appt.rescheduleOfId) throw notFound('Không tìm thấy lịch hẹn.');
+  if (!appt.rescheduleHold) throw new AppError('INVALID_STATUS', 'Lịch này không có yêu cầu đổi lịch đang chờ duyệt.');
+  if (appt.status !== AppointmentStatus.CONFIRMED) throw new AppError('INVALID_STATUS', 'Lịch hẹn không còn ở trạng thái đã xác nhận.');
+  return { appt, hold: appt.rescheduleHold };
+}
+
+/** Admin duyệt: chuyển chính lịch gốc sang giờ mới và bỏ bản ghi giữ chỗ. */
+export async function approveReschedule(appointmentId: string, now: Date = new Date()): Promise<AppointmentDto> {
+  return runBookingTx(async (tx) => {
+    const { appt, hold } = await loadPendingRequest(tx, appointmentId);
+    await lockPatient(tx, appt.patientId);
+    if (hold.startTime.getTime() <= now.getTime()) {
+      throw new AppError('SLOT_INVALID', 'Giờ mới của yêu cầu đã qua nên không duyệt được. Hãy từ chối yêu cầu này.');
+    }
+    await tx.appointment.delete({ where: { id: hold.id } });
+    await tx.appointment.update({
+      where: { id: appt.id },
+      data: {
+        startTime: hold.startTime,
+        endTime: hold.endTime,
+        previousStartTime: appt.startTime,
+        changeReason: hold.changeReason,
+        rejectedStartTime: null,
+        changeRejectReason: null,
+        changeRejectedAt: null,
+      },
+    });
+    return loadDto(tx, appt.id);
+  });
+}
+
+function rejectionEmail(p: { patientName: string; doctorName: string; specialty: string; current: Date; requested: Date; reason: string }) {
+  return {
+    subject: `[${env.CLINIC_NAME}] Yêu cầu đổi lịch khám chưa được chấp nhận`,
+    text: [
+      `Chào ${p.patientName},`,
+      '',
+      `Yêu cầu đổi lịch khám của bạn với bác sĩ ${p.doctorName} (${p.specialty}) từ ${formatVnDateTime(p.current)} sang ${formatVnDateTime(p.requested)} chưa được phòng khám chấp nhận.`,
+      '',
+      `Lý do: ${p.reason}`,
+      '',
+      `Lịch hẹn của bạn vẫn giữ nguyên vào ${formatVnDateTime(p.current)}. Bạn có thể vào mục "Lịch hẹn của tôi" để chọn giờ khác hoặc hủy lịch.`,
+      '',
+      env.CLINIC_NAME,
+    ].join('\n'),
+  };
+}
+
+/** Admin từ chối: lịch gốc giữ nguyên giờ cũ, ghi lý do và gửi email báo cho bệnh nhân. */
+export async function rejectReschedule(appointmentId: string, rejectReason: string, now: Date = new Date()) {
+  const reason = rejectReasonSchema.parse(rejectReason);
+  const { dto, mail } = await runBookingTx(async (tx) => {
+    const { appt, hold } = await loadPendingRequest(tx, appointmentId);
+    await lockPatient(tx, appt.patientId);
+    await tx.appointment.delete({ where: { id: hold.id } });
+    await tx.appointment.update({
+      where: { id: appt.id },
+      data: { rejectedStartTime: hold.startTime, changeRejectReason: reason, changeRejectedAt: now },
+    });
+    return {
+      dto: await loadDto(tx, appt.id),
+      mail: {
+        to: appt.patient.email,
+        ...rejectionEmail({
+          patientName: appt.patient.fullName,
+          doctorName: appt.doctor.user.fullName,
+          specialty: appt.doctor.specialty.name,
+          current: appt.startTime,
+          requested: hold.startTime,
+          reason,
+        }),
+      },
+    };
+  });
+  // Gửi email sau khi đã ghi xong; lỗi gửi mail không làm hỏng thao tác từ chối.
+  let emailSent = false;
+  try {
+    await getMailer().send(mail);
+    emailSent = true;
+  } catch (err) {
+    console.error('[mail] Gửi email từ chối đổi lịch thất bại:', err instanceof Error ? err.message : err);
+  }
+  return { appointment: dto, emailSent };
+}
+
+/** Các yêu cầu đổi lịch đang chờ duyệt (không có lý do khám — dữ liệu sức khỏe). */
+export async function listRescheduleRequests() {
+  const holds = await prisma.appointment.findMany({
+    where: { rescheduleOfId: { not: null } },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      startTime: true,
+      endTime: true,
+      changeReason: true,
+      createdAt: true,
+      createdVia: true,
+      rescheduleOf: {
+        select: {
+          id: true,
+          startTime: true,
+          endTime: true,
+          patient: { select: { id: true, fullName: true, phone: true } },
+          doctor: { select: { id: true, user: { select: { fullName: true } }, specialty: { select: { id: true, name: true } } } },
+        },
+      },
+    },
+  });
+  return holds.flatMap((h) =>
+    h.rescheduleOf
+      ? [
+          {
+            appointmentId: h.rescheduleOf.id,
+            patient: h.rescheduleOf.patient,
+            doctor: { id: h.rescheduleOf.doctor.id, fullName: h.rescheduleOf.doctor.user.fullName, specialty: h.rescheduleOf.doctor.specialty },
+            currentStartTime: toVnIso(h.rescheduleOf.startTime),
+            requestedStartTime: toVnIso(h.startTime),
+            requestedEndTime: toVnIso(h.endTime),
+            changeReason: h.changeReason ?? '',
+            requestedAt: h.createdAt.toISOString(),
+            createdVia: h.createdVia,
+          },
+        ]
+      : [],
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -338,24 +533,28 @@ export async function rescheduleAppointment(input: RescheduleInput, now: Date = 
 export interface CancelInput {
   patientId: string;
   appointmentId: string;
+  reason: string;
 }
 
 /** Kiểm tra hủy lịch mà không ghi gì. */
-export async function checkCancel(input: CancelInput, now: Date = new Date()): Promise<AppointmentDto> {
-  return toAppointmentDto(await loadChangeableAppointment(prisma, input.patientId, input.appointmentId, now));
+export async function checkCancel(input: CancelInput, now: Date = new Date()) {
+  const reason = cancelReasonSchema.parse(input.reason);
+  const appointment = toAppointmentDto(await loadChangeableAppointment(prisma, input.patientId, input.appointmentId, now));
+  return { appointment, reason };
 }
 
-/** Đổi status sang CANCELLED và activeKey về null; khung giờ trở lại trống. */
+/** Đổi status sang CANCELLED, activeKey về null, ghi lý do hủy; bỏ yêu cầu đổi lịch đang chờ (nếu có). */
 export async function cancelAppointment(input: CancelInput, now: Date = new Date()): Promise<AppointmentDto> {
+  const reason = cancelReasonSchema.parse(input.reason);
   return runBookingTx(async (tx) => {
     await lockPatient(tx, input.patientId);
     const appt = await loadChangeableAppointment(tx, input.patientId, input.appointmentId, now);
-    const updated = await tx.appointment.update({
+    if (appt.rescheduleHold) await tx.appointment.delete({ where: { id: appt.rescheduleHold.id } });
+    await tx.appointment.update({
       where: { id: appt.id },
-      data: { status: AppointmentStatus.CANCELLED, activeKey: null },
-      include: appointmentInclude,
+      data: { status: AppointmentStatus.CANCELLED, activeKey: null, cancelReason: reason },
     });
-    return toAppointmentDto(updated);
+    return loadDto(tx, appt.id);
   });
 }
 
@@ -366,27 +565,36 @@ export async function cancelAppointment(input: CancelInput, now: Date = new Date
 export async function completeAppointment(input: { doctorUserId: string; appointmentId: string }): Promise<AppointmentDto> {
   const doctor = await prisma.doctor.findUnique({ where: { userId: input.doctorUserId }, select: { id: true } });
   if (!doctor) throw forbidden('Tài khoản này chưa có hồ sơ bác sĩ.');
-  const appt = await prisma.appointment.findUnique({ where: { id: input.appointmentId }, select: { id: true, doctorId: true } });
-  if (!appt) throw notFound('Không tìm thấy lịch hẹn.');
-  if (appt.doctorId !== doctor.id) throw forbidden('Bạn chỉ được cập nhật lịch hẹn của chính mình.');
-  const { count } = await prisma.appointment.updateMany({
-    where: { id: appt.id, status: AppointmentStatus.CONFIRMED },
-    data: { status: AppointmentStatus.COMPLETED },
+  const appt = await prisma.appointment.findUnique({
+    where: { id: input.appointmentId },
+    select: { id: true, doctorId: true, rescheduleOfId: true, rescheduleHold: { select: { id: true } } },
   });
-  if (count === 0) throw new AppError('INVALID_STATUS', 'Chỉ đánh dấu đã khám cho lịch hẹn đang ở trạng thái đã xác nhận.');
-  const updated = await prisma.appointment.findUniqueOrThrow({ where: { id: appt.id }, include: appointmentInclude });
-  return toAppointmentDto(updated);
+  if (!appt || appt.rescheduleOfId) throw notFound('Không tìm thấy lịch hẹn.');
+  if (appt.doctorId !== doctor.id) throw forbidden('Bạn chỉ được cập nhật lịch hẹn của chính mình.');
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.appointment.updateMany({
+      where: { id: appt.id, status: AppointmentStatus.CONFIRMED },
+      data: { status: AppointmentStatus.COMPLETED },
+    });
+    if (count === 0) throw new AppError('INVALID_STATUS', 'Chỉ đánh dấu đã khám cho lịch hẹn đang ở trạng thái đã xác nhận.');
+    // Đã khám ở giờ hiện tại thì yêu cầu đổi lịch đang chờ không còn ý nghĩa.
+    if (appt.rescheduleHold) await tx.appointment.delete({ where: { id: appt.rescheduleHold.id } });
+    return loadDto(tx, appt.id);
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Danh sách lịch hẹn
 // ---------------------------------------------------------------------------
 
-/** Bệnh nhân thấy lịch của mình; bác sĩ thấy lịch hẹn với mình. */
+/**
+ * Bệnh nhân thấy lịch của mình (yêu cầu đổi lịch nằm trong `pendingChange`).
+ * Bác sĩ thấy lịch hẹn với mình, gồm cả các khung đang giữ chỗ cho yêu cầu đổi lịch (status PENDING).
+ */
 export async function listMyAppointments(user: { id: string; role: Role }, status?: AppointmentStatus): Promise<AppointmentDto[]> {
   let where: Prisma.AppointmentWhereInput;
   if (user.role === Role.PATIENT) {
-    where = { patientId: user.id };
+    where = { patientId: user.id, rescheduleOfId: null };
   } else if (user.role === Role.DOCTOR) {
     const doctor = await prisma.doctor.findUnique({ where: { userId: user.id }, select: { id: true } });
     if (!doctor) return [];
@@ -412,11 +620,16 @@ const adminAppointmentSelect = {
   endTime: true,
   status: true,
   createdVia: true,
+  rescheduleOfId: true,
+  changeReason: true,
   doctor: { select: { id: true, user: { select: { fullName: true } }, specialty: { select: { id: true, name: true } } } },
   patient: { select: { id: true, fullName: true, phone: true } },
 } satisfies Prisma.AppointmentSelect;
 
-/** Lịch hẹn của mọi bác sĩ từ ngày `from` đến hết ngày `to` (giờ Việt Nam), tối đa 62 ngày. */
+/**
+ * Lịch hẹn của mọi bác sĩ từ ngày `from` đến hết ngày `to` (giờ Việt Nam), tối đa 62 ngày.
+ * Gồm cả khung đang giữ chỗ cho yêu cầu đổi lịch (status PENDING, có rescheduleOfId).
+ */
 export async function listAppointmentsForAdmin(filter: { from: string; to: string; doctorId?: string; status?: AppointmentStatus }) {
   if (!isValidDateString(filter.from) || !isValidDateString(filter.to)) {
     throw new AppError('VALIDATION_ERROR', 'Ngày không hợp lệ, dùng định dạng YYYY-MM-DD.');
@@ -440,6 +653,8 @@ export async function listAppointmentsForAdmin(filter: { from: string; to: strin
     endTime: toVnIso(a.endTime),
     status: a.status,
     createdVia: a.createdVia,
+    rescheduleOfId: a.rescheduleOfId,
+    changeReason: a.rescheduleOfId ? a.changeReason : null,
     doctor: { id: a.doctor.id, fullName: a.doctor.user.fullName, specialty: a.doctor.specialty },
     patient: a.patient,
   }));

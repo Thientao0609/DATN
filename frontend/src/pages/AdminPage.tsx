@@ -1,13 +1,15 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router';
 import { Empty, ErrorAlert, Modal, Spinner } from '../components/common';
 import { api, errorMessage } from '../lib/api';
-import { formatMoney } from '../lib/time';
-import type { AdminDoctor, ClinicInfo, Specialty, Stats, WorkingSchedule } from '../lib/types';
+import { formatDateTime, formatMoney } from '../lib/time';
+import type { AdminDoctor, ClinicInfo, RescheduleRequest, Specialty, Stats, WorkingSchedule } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 
-type Tab = 'stats' | 'specialties' | 'doctors' | 'schedules' | 'clinic';
+type Tab = 'stats' | 'requests' | 'specialties' | 'doctors' | 'schedules' | 'clinic';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'stats', label: 'Thống kê' },
+  { id: 'requests', label: 'Yêu cầu đổi lịch' },
   { id: 'specialties', label: 'Chuyên khoa' },
   { id: 'doctors', label: 'Bác sĩ' },
   { id: 'schedules', label: 'Lịch làm việc' },
@@ -55,6 +57,7 @@ function StatsTab() {
           <strong>{s.totals.appointments}</strong>
           <span className="caption">
             {s.totals.confirmed} sắp tới · {s.totals.completed} đã khám
+            {s.totals.pendingReschedules > 0 && ` · ${s.totals.pendingReschedules} yêu cầu đổi lịch chờ duyệt`}
           </span>
         </div>
         <div className="stat-tile">
@@ -151,6 +154,120 @@ function Field({ label, children, hint }: { label: string; children: ReactNode; 
       {children}
       {hint && <span className="field-hint">{hint}</span>}
     </label>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Yêu cầu đổi lịch
+// ---------------------------------------------------------------------------
+
+function RescheduleRequestsTab() {
+  const list = useAsync((signal) => api.get<{ requests: RescheduleRequest[] }>('/admin/reschedule-requests', undefined, signal), []);
+  const [rejecting, setRejecting] = useState<RescheduleRequest | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const approve = async (r: RescheduleRequest) => {
+    setBusyId(r.appointmentId);
+    setError(null);
+    setNotice(null);
+    try {
+      await api.post(`/admin/reschedule-requests/${r.appointmentId}/approve`);
+      setNotice(`Đã duyệt: lịch của ${r.patient.fullName} chuyển sang ${formatDateTime(r.requestedStartTime)}.`);
+      list.reload();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const requests = list.data?.requests ?? [];
+  return (
+    <div className="stack">
+      <p className="muted small">
+        Bệnh nhân gửi yêu cầu đổi lịch; trong lúc chờ, lịch cũ vẫn được giữ và giờ mới được giữ chỗ. Duyệt thì lịch chuyển sang giờ mới; từ chối thì lịch
+        giữ nguyên giờ cũ và bệnh nhân nhận email thông báo kèm lý do.
+      </p>
+      {notice && (
+        <p className="alert alert-success" role="status">
+          {notice}
+        </p>
+      )}
+      <ErrorAlert message={list.error ?? error} />
+      {list.loading && !list.data && <Spinner />}
+      {list.data && requests.length === 0 && <Empty>Không có yêu cầu đổi lịch nào đang chờ duyệt.</Empty>}
+      {requests.map((r) => (
+        <article key={r.appointmentId} className="card stack">
+          <div className="row-between" style={{ alignItems: 'flex-start' }}>
+            <div className="stack" style={{ gap: 'var(--space-1)' }}>
+              <h3>{r.patient.fullName}</h3>
+              <span className="caption">
+                {r.patient.phone ?? 'Không có số điện thoại'} · BS. {r.doctor.fullName} · {r.doctor.specialty.name}
+              </span>
+            </div>
+            <span className="badge badge-pending">Chờ xác nhận</span>
+          </div>
+          <dl className="summary small">
+            <dt>Giờ hiện tại</dt>
+            <dd>{formatDateTime(r.currentStartTime)}</dd>
+            <dt>Giờ muốn đổi</dt>
+            <dd>
+              <strong>{formatDateTime(r.requestedStartTime)}</strong>
+            </dd>
+            <dt>Lý do đổi lịch</dt>
+            <dd>{r.changeReason}</dd>
+            <dt>Gửi lúc</dt>
+            <dd>
+              {formatDateTime(r.requestedAt)}
+              {r.createdVia === 'CHATBOT' ? ' · qua trợ lý AI' : ''}
+            </dd>
+          </dl>
+          <div className="row">
+            <button type="button" className="btn btn-outline btn-sm" disabled={busyId === r.appointmentId} onClick={() => void approve(r)}>
+              {busyId === r.appointmentId ? 'Đang duyệt…' : 'Duyệt'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger btn-sm"
+              disabled={busyId === r.appointmentId}
+              onClick={() => {
+                setRejectReason('');
+                setRejecting(r);
+              }}
+            >
+              Từ chối
+            </button>
+          </div>
+        </article>
+      ))}
+      {rejecting && (
+        <FormDialog
+          title="Từ chối yêu cầu đổi lịch"
+          submitLabel="Từ chối và gửi email"
+          onClose={() => setRejecting(null)}
+          onSubmit={async () => {
+            const res = await api.post<{ emailSent: boolean }>(`/admin/reschedule-requests/${rejecting.appointmentId}/reject`, { reason: rejectReason });
+            setNotice(
+              res.emailSent
+                ? `Đã từ chối và gửi email thông báo cho ${rejecting.patient.fullName}. Lịch giữ nguyên giờ cũ.`
+                : `Đã từ chối yêu cầu nhưng chưa gửi được email cho ${rejecting.patient.fullName}. Lịch giữ nguyên giờ cũ.`,
+            );
+            list.reload();
+          }}
+        >
+          <p className="small muted">
+            {rejecting.patient.fullName} muốn đổi từ {formatDateTime(rejecting.currentStartTime)} sang {formatDateTime(rejecting.requestedStartTime)}. Lịch sẽ
+            giữ nguyên giờ cũ.
+          </p>
+          <Field label="Lý do từ chối" hint="Bắt buộc, từ 5 đến 500 ký tự. Lý do này được gửi tới email của bệnh nhân.">
+            <textarea className="textarea" required minLength={5} maxLength={500} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+          </Field>
+        </FormDialog>
+      )}
+    </div>
   );
 }
 
@@ -557,7 +674,9 @@ function ClinicInfoTab() {
 }
 
 export function AdminPage() {
-  const [tab, setTab] = useState<Tab>('stats');
+  const [params] = useSearchParams();
+  const initial = params.get('tab');
+  const [tab, setTab] = useState<Tab>(TABS.some((t) => t.id === initial) ? (initial as Tab) : 'stats');
   return (
     <div className="container page">
       <div className="page-header">
@@ -572,6 +691,7 @@ export function AdminPage() {
         ))}
       </div>
       {tab === 'stats' && <StatsTab />}
+      {tab === 'requests' && <RescheduleRequestsTab />}
       {tab === 'specialties' && <SpecialtiesTab />}
       {tab === 'doctors' && <DoctorsTab />}
       {tab === 'schedules' && <SchedulesTab />}

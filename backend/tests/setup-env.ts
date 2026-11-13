@@ -10,3 +10,12 @@ process.env.CLINIC_NAME = 'Phòng khám Test';
 process.env.LLM_BASE_URL = 'http://llm.invalid/v1';
 process.env.LLM_API_KEY = 'test-key';
 process.env.LLM_MODEL = 'fake-model';
+
+// Test không gửi email thật và không ghi vào outbox/: ghi lại vào sentMails.
+const { setMailer } = await import('../src/lib/mailer.js');
+const { sentMails } = await import('./fake-mailer.js');
+setMailer({
+  send: async (message) => {
+    sentMails.push(message);
+  },
+});

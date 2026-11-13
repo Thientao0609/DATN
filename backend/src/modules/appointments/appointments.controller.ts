@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { CreatedVia } from '@prisma/client';
 import { currentUser } from '../../middleware/auth.js';
 import { idParamsSchema, toDate } from '../../lib/validation.js';
-import { createAppointmentSchema, listQuerySchema, rescheduleSchema } from './appointments.schema.js';
+import { cancelSchema, createAppointmentSchema, listQuerySchema, rescheduleSchema } from './appointments.schema.js';
 import * as service from './appointments.service.js';
 
 export async function create(req: Request, res: Response) {
@@ -25,17 +25,21 @@ export async function listMine(req: Request, res: Response) {
 export async function reschedule(req: Request, res: Response) {
   const { id } = idParamsSchema.parse(req.params);
   const body = rescheduleSchema.parse(req.body);
-  const appointment = await service.rescheduleAppointment({
+  // Đổi lịch tạo yêu cầu chờ admin duyệt; lịch giữ giờ cũ cho tới khi được duyệt.
+  const appointment = await service.requestReschedule({
     patientId: currentUser(req).id,
     appointmentId: id,
     newStartTime: toDate(body.startTime),
+    reason: body.changeReason,
+    createdVia: CreatedVia.FORM,
   });
   res.json({ appointment });
 }
 
 export async function cancel(req: Request, res: Response) {
   const { id } = idParamsSchema.parse(req.params);
-  res.json({ appointment: await service.cancelAppointment({ patientId: currentUser(req).id, appointmentId: id }) });
+  const { cancelReason } = cancelSchema.parse(req.body);
+  res.json({ appointment: await service.cancelAppointment({ patientId: currentUser(req).id, appointmentId: id, reason: cancelReason }) });
 }
 
 export async function complete(req: Request, res: Response) {

@@ -30,3 +30,11 @@ export const reasonSchema = z
   .max(500, 'Lý do khám tối đa 500 ký tự.');
 
 export const idParamsSchema = z.object({ id: idSchema });
+
+/** Ô ghi chú bắt buộc 5–500 ký tự (lý do đổi lịch, hủy lịch, từ chối). */
+export const noteSchema = (label: string) =>
+  z
+    .string({ error: `Vui lòng nhập ${label}.` })
+    .trim()
+    .min(5, `Vui lòng nhập ${label} (ít nhất 5 ký tự).`)
+    .max(500, `${label.charAt(0).toUpperCase()}${label.slice(1)} tối đa 500 ký tự.`);

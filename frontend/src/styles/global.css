@@ -1369,3 +1369,53 @@ body {
   font-size: var(--font-size-h3);
   letter-spacing: 0;
 }
+
+.badge-pending {
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: var(--border-hairline);
+}
+
+.badge-pending::before {
+  content: '';
+  width: var(--space-1);
+  height: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-text-secondary);
+}
+
+/* Thẻ ghi lý do đổi/hủy lịch bên dưới mỗi lịch hẹn */
+.reason-card {
+  width: 100%;
+  border-radius: var(--radius-control);
+  background: var(--color-bg-subtle);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-small);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.reason-card-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: var(--font-weight-semibold);
+}
+
+.reason-card-pending {
+  background: var(--color-primary-tint);
+}
+
+.reason-card-rejected {
+  background: var(--color-danger-tint);
+}
+
+.reason-card-rejected .reason-card-title {
+  color: var(--color-danger);
+}
+
+.reason-card .summary {
+  font-size: var(--font-size-small);
+}

@@ -28,6 +28,9 @@ export function adminRoutes(): Router {
   router.delete('/clinic-info/:id', c.deleteClinicInfo);
 
   router.get('/appointments', c.listAppointments);
+  router.get('/reschedule-requests', c.listRescheduleRequestsHandler);
+  router.post('/reschedule-requests/:id/approve', c.approveRescheduleHandler);
+  router.post('/reschedule-requests/:id/reject', c.rejectRescheduleHandler);
   router.get('/stats', c.stats);
   return router;
 }

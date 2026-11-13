@@ -243,7 +243,7 @@ describe('Vòng lặp agent với model giả lập', () => {
     expect(await prisma.appointment.count()).toBe(0);
   });
 
-  it('propose_cancel và propose_reschedule dùng chung service với REST', async () => {
+  it('propose_reschedule gửi yêu cầu chờ admin duyệt; propose_cancel hủy lịch kèm lý do', async () => {
     const { doctor } = await createDoctor();
     const patient = await createUser();
     const date = workingDate(2);
@@ -252,15 +252,30 @@ describe('Vòng lặp agent với model giả lập', () => {
     setLlmClient(
       new ScriptedLlm([
         toolCallStep('propose_reschedule', { appointmentId: apptId, newStartTime: vnIso(date, '15:00') }),
-        textStep('Bấm Đồng ý để đổi lịch.'),
-        toolCallStep('propose_cancel', { appointmentId: apptId }),
+        textStep('Bạn cho mình biết lý do đổi lịch nhé.'),
+        toolCallStep('propose_reschedule', { appointmentId: apptId, newStartTime: vnIso(date, '15:00'), changeReason: 'Buổi sáng phải đi làm' }),
+        textStep('Bấm Đồng ý để gửi yêu cầu đổi lịch.'),
+        toolCallStep('propose_cancel', { appointmentId: apptId, cancelReason: 'Đã đi khám ở nơi khác' }),
         textStep('Bấm Đồng ý để hủy.'),
       ]),
     );
     const sessionId = await newSession(patient);
-    const reschedule = (await send(patient, sessionId, 'Đổi sang 3 giờ chiều')).body.pendingAction;
-    expect(reschedule).toMatchObject({ type: 'RESCHEDULE', summary: { oldStartTime: vnIso(date, '08:00'), startTime: vnIso(date, '15:00') } });
-    expect((await request(app).post(`/api/chat/actions/${reschedule.id}/confirm`).set(authHeader(patient))).body.appointment.startTime).toBe(vnIso(date, '15:00'));
+    // Thiếu lý do đổi lịch: tool trả lỗi cho model, không tạo đề xuất.
+    const missing = await send(patient, sessionId, 'Đổi sang 3 giờ chiều');
+    expect(missing.body.pendingAction).toBeNull();
+
+    const reschedule = (await send(patient, sessionId, 'Vì buổi sáng phải đi làm')).body.pendingAction;
+    expect(reschedule).toMatchObject({
+      type: 'RESCHEDULE',
+      summary: { oldStartTime: vnIso(date, '08:00'), startTime: vnIso(date, '15:00'), changeReason: 'Buổi sáng phải đi làm' },
+    });
+    const confirmed = await request(app).post(`/api/chat/actions/${reschedule.id}/confirm`).set(authHeader(patient));
+    // Lịch vẫn ở giờ cũ, yêu cầu đổi sang 15:00 đang chờ admin duyệt.
+    expect(confirmed.body.appointment).toMatchObject({
+      startTime: vnIso(date, '08:00'),
+      pendingChange: { startTime: vnIso(date, '15:00'), reason: 'Buổi sáng phải đi làm' },
+    });
+    expect(confirmed.body.message.content).toContain('chờ phòng khám xác nhận');
 
     const cancel = (await send(patient, sessionId, 'Hủy lịch đó giúp tôi')).body.pendingAction;
     expect(cancel.type).toBe('CANCEL');
@@ -269,6 +284,9 @@ describe('Vòng lặp agent với model giả lập', () => {
     const stored = await prisma.appointment.findUniqueOrThrow({ where: { id: apptId } });
     expect(stored.status).toBe(AppointmentStatus.CANCELLED);
     expect(stored.activeKey).toBeNull();
+    expect(stored.cancelReason).toBe('Đã đi khám ở nơi khác');
+    // Hủy lịch cũng bỏ yêu cầu đổi lịch đang chờ.
+    expect(await prisma.appointment.count()).toBe(1);
   });
 });
 
@@ -296,7 +314,7 @@ describe('An toàn', () => {
       .post('/api/appointments')
       .set(authHeader(other))
       .send({ doctorId: doctor.id, startTime: vnIso(workingDate(2), '08:00'), reason: REASON });
-    const llm = new ScriptedLlm([toolCallStep('propose_cancel', { appointmentId: booked.body.appointment.id }), textStep('Mình không thể hủy lịch này.')]);
+    const llm = new ScriptedLlm([toolCallStep('propose_cancel', { appointmentId: booked.body.appointment.id, cancelReason: 'Không muốn khám nữa' }), textStep('Mình không thể hủy lịch này.')]);
     setLlmClient(llm);
     const sessionId = await newSession(me);
     const res = await send(me, sessionId, 'Hủy lịch kia');

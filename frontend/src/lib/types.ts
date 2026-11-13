@@ -1,7 +1,8 @@
 // Kiểu dữ liệu trả về từ backend (/api).
 
 export type Role = 'PATIENT' | 'DOCTOR' | 'ADMIN';
-export type AppointmentStatus = 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+/** PENDING chỉ có ở khung giờ đang giữ chỗ cho một yêu cầu đổi lịch chờ admin duyệt. */
+export type AppointmentStatus = 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'PENDING';
 export type CreatedVia = 'FORM' | 'CHATBOT';
 
 export interface User {
@@ -62,6 +63,16 @@ export interface Appointment {
   status: AppointmentStatus;
   createdVia: CreatedVia;
   createdAt: string;
+  /** Khác null khi đây là khung giữ chỗ của một yêu cầu đổi lịch (chỉ bác sĩ thấy). */
+  rescheduleOfId: string | null;
+  /** Yêu cầu đổi lịch đang chờ admin duyệt. */
+  pendingChange: { startTime: string; endTime: string; reason: string; requestedAt: string } | null;
+  /** Lý do của lần đổi lịch đã được duyệt gần nhất. */
+  changeReason: string | null;
+  previousStartTime: string | null;
+  /** Lần từ chối đổi lịch gần nhất. */
+  changeRejection: { requestedStartTime: string; reason: string; at: string } | null;
+  cancelReason: string | null;
   doctor: { id: string; fullName: string; fee: number; specialty: { id: string; name: string } };
   patient: { id: string; fullName: string; phone: string | null };
 }
@@ -73,6 +84,8 @@ export interface AdminAppointment {
   endTime: string;
   status: AppointmentStatus;
   createdVia: CreatedVia;
+  rescheduleOfId: string | null;
+  changeReason: string | null;
   doctor: { id: string; fullName: string; specialty: { id: string; name: string } };
   patient: { id: string; fullName: string; phone: string | null };
 }
@@ -100,6 +113,8 @@ export interface PendingActionSummary {
   oldStartTime?: string;
   oldStartTimeText?: string;
   reason: string;
+  /** Lý do đổi hoặc hủy lịch. */
+  changeReason?: string;
   fee?: number;
 }
 
@@ -133,9 +148,30 @@ export interface ClinicInfo {
 }
 
 export interface Stats {
-  totals: { appointments: number; confirmed: number; completed: number; cancelled: number; viaChatbot: number; viaForm: number };
+  totals: {
+    appointments: number;
+    confirmed: number;
+    completed: number;
+    cancelled: number;
+    viaChatbot: number;
+    viaForm: number;
+    pendingReschedules: number;
+  };
   cancelRate: number;
   chatbotRate: number;
   bySpecialty: { specialtyId: string; name: string; total: number; confirmed: number; completed: number; cancelled: number }[];
   busiestSlots: { time: string; count: number }[];
+}
+
+/** Yêu cầu đổi lịch chờ admin duyệt (không có lý do khám). */
+export interface RescheduleRequest {
+  appointmentId: string;
+  patient: { id: string; fullName: string; phone: string | null };
+  doctor: { id: string; fullName: string; specialty: { id: string; name: string } };
+  currentStartTime: string;
+  requestedStartTime: string;
+  requestedEndTime: string;
+  changeReason: string;
+  requestedAt: string;
+  createdVia: CreatedVia;
 }

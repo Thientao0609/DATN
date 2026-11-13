@@ -5,6 +5,7 @@ const STATUS_LABEL: Record<AppointmentStatus, string> = {
   CONFIRMED: 'Đã xác nhận',
   COMPLETED: 'Đã khám',
   CANCELLED: 'Đã hủy',
+  PENDING: 'Chờ xác nhận',
 };
 
 export function StatusBadge({ status }: { status: AppointmentStatus }) {

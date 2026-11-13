@@ -36,7 +36,13 @@ export function ConfirmationCard({ card, onConfirm, onReject }: { card: CardStat
         )}
         <dt>{type === 'RESCHEDULE' ? 'Giờ mới' : 'Thời gian'}</dt>
         <dd>{summary.startTimeText}</dd>
-        <dt>Lý do</dt>
+        {summary.changeReason && (
+          <>
+            <dt>{type === 'CANCEL' ? 'Lý do hủy' : 'Lý do đổi'}</dt>
+            <dd>{summary.changeReason}</dd>
+          </>
+        )}
+        <dt>Lý do khám</dt>
         <dd>{summary.reason}</dd>
         {summary.fee !== undefined && (
           <>
@@ -53,11 +59,17 @@ export function ConfirmationCard({ card, onConfirm, onReject }: { card: CardStat
           Hủy
         </button>
       </div>
-      {card.status === 'idle' && <span className="caption">Lịch chỉ được ghi khi bạn bấm {confirmLabel}. Đề xuất hết hạn sau 10 phút.</span>}
+      {card.status === 'idle' && (
+        <span className="caption">
+          {type === 'RESCHEDULE'
+            ? 'Bấm Đồng ý để gửi yêu cầu đổi lịch; lịch chỉ chuyển sang giờ mới khi phòng khám xác nhận. Đề xuất hết hạn sau 10 phút.'
+            : `Lịch chỉ được ghi khi bạn bấm ${confirmLabel}. Đề xuất hết hạn sau 10 phút.`}
+        </span>
+      )}
       {RESULT_TEXT[card.status] && (
         <span className={card.status === 'done' ? 'small confirm-ok' : 'caption'} role="status">
           {card.status === 'done' && '✓ '}
-          {RESULT_TEXT[card.status]}
+          {card.status === 'done' && type === 'RESCHEDULE' ? 'Đã gửi yêu cầu, chờ phòng khám xác nhận' : RESULT_TEXT[card.status]}
         </span>
       )}
       {card.status === 'error' && (

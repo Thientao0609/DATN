@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { Empty, ErrorAlert, Modal, Spinner, StatusBadge } from '../components/common';
 import { Icon } from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +45,9 @@ interface CalAppt {
   patientName: string;
   patientPhone: string | null;
   reason?: string;
+  /** Khác null khi đây là khung đang giữ chỗ cho một yêu cầu đổi lịch. */
+  rescheduleOfId: string | null;
+  changeReason: string | null;
 }
 
 function fromAdmin(a: AdminAppointment): CalAppt {
@@ -59,6 +63,8 @@ function fromAdmin(a: AdminAppointment): CalAppt {
     specialtyName: a.doctor.specialty.name,
     patientName: a.patient.fullName,
     patientPhone: a.patient.phone,
+    rescheduleOfId: a.rescheduleOfId,
+    changeReason: a.rescheduleOfId ? a.changeReason : null,
   };
 }
 
@@ -396,6 +402,12 @@ function DetailDialog({ appt, isDoctor, onClose, onComplete }: { appt: CalAppt; 
         </dd>
         <dt>Đặt qua</dt>
         <dd>{appt.createdVia === 'CHATBOT' ? 'Trợ lý AI' : 'Form đặt lịch'}</dd>
+        {appt.rescheduleOfId && appt.changeReason && (
+          <>
+            <dt>Lý do đổi lịch</dt>
+            <dd>{appt.changeReason}</dd>
+          </>
+        )}
         {appt.reason !== undefined && (
           <>
             <dt>Lý do khám</dt>
@@ -403,6 +415,17 @@ function DetailDialog({ appt, isDoctor, onClose, onComplete }: { appt: CalAppt; 
           </>
         )}
       </dl>
+      {appt.rescheduleOfId && (
+        <p className="alert alert-info">
+          Khung giờ này đang được giữ cho một yêu cầu đổi lịch, chờ admin duyệt.
+          {!isDoctor && (
+            <>
+              {' '}
+              <Link to="/quan-tri?tab=requests">Xử lý ở mục Yêu cầu đổi lịch ›</Link>
+            </>
+          )}
+        </p>
+      )}
       {!isDoctor && <p className="caption">Lý do khám là dữ liệu sức khỏe nên chỉ bệnh nhân và bác sĩ khám xem được.</p>}
       <ErrorAlert message={error} />
       <div className="modal-actions">

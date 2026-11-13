@@ -6,10 +6,13 @@ import { toVnTimeString } from '../../lib/time.js';
 const ratio = (part: number, total: number) => (total === 0 ? 0 : Math.round((part / total) * 10_000) / 10_000);
 
 export async function getStats() {
-  const [appointments, specialties] = await Promise.all([
+  const [appointments, pendingReschedules, specialties] = await Promise.all([
+    // Bỏ bản ghi giữ chỗ của yêu cầu đổi lịch để không đếm một lịch hai lần.
     prisma.appointment.findMany({
+      where: { rescheduleOfId: null },
       select: { status: true, createdVia: true, startTime: true, doctor: { select: { specialtyId: true } } },
     }),
+    prisma.appointment.count({ where: { rescheduleOfId: { not: null } } }),
     prisma.specialty.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
   ]);
 
@@ -50,6 +53,7 @@ export async function getStats() {
       cancelled,
       viaChatbot,
       viaForm: total - viaChatbot,
+      pendingReschedules,
     },
     cancelRate: ratio(cancelled, total),
     chatbotRate: ratio(viaChatbot, total),

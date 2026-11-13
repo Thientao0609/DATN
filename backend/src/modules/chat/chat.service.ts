@@ -15,7 +15,7 @@ import { toDate } from '../../lib/validation.js';
 import {
   cancelAppointment,
   createAppointment,
-  rescheduleAppointment,
+  requestReschedule,
   type AppointmentDto,
 } from '../appointments/appointments.service.js';
 import type { LlmToolCall } from './llm.js';
@@ -118,8 +118,8 @@ export async function listVisibleMessages(sessionId: string): Promise<MessageDto
 // ---------------------------------------------------------------------------
 
 const createInputSchema = z.object({ doctorId: z.string(), startTime: z.string(), reason: z.string() });
-const rescheduleInputSchema = z.object({ appointmentId: z.string(), newStartTime: z.string() });
-const cancelInputSchema = z.object({ appointmentId: z.string() });
+const rescheduleInputSchema = z.object({ appointmentId: z.string(), newStartTime: z.string(), reason: z.string() });
+const cancelInputSchema = z.object({ appointmentId: z.string(), reason: z.string() });
 
 export interface PendingActionSummary {
   title: string;
@@ -131,6 +131,8 @@ export interface PendingActionSummary {
   oldStartTime?: string;
   oldStartTimeText?: string;
   reason: string;
+  /** Lý do đổi hoặc hủy lịch người dùng đưa ra. */
+  changeReason?: string;
   fee?: number;
 }
 
@@ -209,8 +211,10 @@ function successText(type: PendingActionType, appt: AppointmentDto): string {
   switch (type) {
     case PendingActionType.CREATE:
       return `Đã đặt lịch thành công với ${who} vào ${when}. Bạn có thể xem trong mục "Lịch hẹn của tôi".`;
-    case PendingActionType.RESCHEDULE:
-      return `Đã đổi lịch thành công. Lịch mới với ${who} vào ${when}.`;
+    case PendingActionType.RESCHEDULE: {
+      const requested = appt.pendingChange ? formatVnDateTime(new Date(appt.pendingChange.startTime)) : when;
+      return `Đã gửi yêu cầu đổi lịch với ${who} sang ${requested}. Yêu cầu đang chờ phòng khám xác nhận; trong lúc chờ, lịch cũ lúc ${when} vẫn được giữ.`;
+    }
     case PendingActionType.CANCEL:
       return `Đã hủy lịch hẹn với ${who} vào ${when}.`;
   }
@@ -253,12 +257,15 @@ export async function confirmPendingAction(userId: string, actionId: string, now
       }
       case PendingActionType.RESCHEDULE: {
         const input = rescheduleInputSchema.parse(payload.input);
-        appointment = await rescheduleAppointment({ patientId: userId, appointmentId: input.appointmentId, newStartTime: toDate(input.newStartTime) }, now);
+        appointment = await requestReschedule(
+          { patientId: userId, appointmentId: input.appointmentId, newStartTime: toDate(input.newStartTime), reason: input.reason, createdVia: CreatedVia.CHATBOT },
+          now,
+        );
         break;
       }
       case PendingActionType.CANCEL: {
         const input = cancelInputSchema.parse(payload.input);
-        appointment = await cancelAppointment({ patientId: userId, appointmentId: input.appointmentId }, now);
+        appointment = await cancelAppointment({ patientId: userId, appointmentId: input.appointmentId, reason: input.reason }, now);
         break;
       }
     }

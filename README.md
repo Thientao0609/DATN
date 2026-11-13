@@ -37,6 +37,7 @@ Biến môi trường (`backend/.env`, xem `.env.example`). Server từ chối k
 | `LLM_API_KEY` | API key của 9Router |
 | `LLM_MODEL` | Tên model, phải hỗ trợ tool calling |
 | `CLINIC_NAME` | Tên phòng khám chèn vào system prompt |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Gửi email thông báo (không bắt buộc). Để trống `SMTP_HOST` thì email được lưu thành file `.eml` trong `backend/outbox/` |
 
 Các lệnh khác: `npm test` (Vitest + Supertest), `npm run typecheck`, `npm run build && npm start`.
 
@@ -97,8 +98,8 @@ Tất cả endpoint có tiền tố `/api`, nhận và trả JSON. Token gửi q
 | `GET /clinic-info` | Công khai | Thông tin phòng khám (chỉ đọc), dùng cho trang Câu hỏi thường gặp |
 | `POST /appointments` | PATIENT | Đặt lịch: `doctorId`, `startTime`, `reason` |
 | `GET /appointments/me?status=` | PATIENT, DOCTOR | Lịch hẹn của tôi |
-| `PATCH /appointments/:id/reschedule` | PATIENT (chủ lịch) | Đổi sang `startTime` mới |
-| `PATCH /appointments/:id/cancel` | PATIENT (chủ lịch) | Hủy lịch |
+| `PATCH /appointments/:id/reschedule` | PATIENT (chủ lịch) | Gửi yêu cầu đổi sang `startTime` mới kèm `changeReason`; chờ admin duyệt |
+| `PATCH /appointments/:id/cancel` | PATIENT (chủ lịch) | Hủy lịch kèm `cancelReason` |
 | `PATCH /appointments/:id/complete` | DOCTOR (bác sĩ của lịch) | Đánh dấu đã khám |
 | `POST /chat/sessions` | PATIENT | Tạo phiên chat |
 | `GET /chat/sessions` | PATIENT | Danh sách phiên của tôi |
@@ -108,6 +109,9 @@ Tất cả endpoint có tiền tố `/api`, nhận và trả JSON. Token gửi q
 | `POST /chat/actions/:id/reject` | PATIENT (chủ thao tác) | Từ chối đề xuất |
 | `GET/POST/PATCH/DELETE /admin/specialties`, `/admin/doctors`, `/admin/schedules`, `/admin/clinic-info` | ADMIN | Quản lý dữ liệu nền |
 | `GET /admin/appointments?from=&to=&doctorId=&status=` | ADMIN | Lịch hẹn của mọi bác sĩ trong khoảng ngày (tối đa 62 ngày), không có lý do khám |
+| `GET /admin/reschedule-requests` | ADMIN | Yêu cầu đổi lịch đang chờ duyệt |
+| `POST /admin/reschedule-requests/:id/approve` | ADMIN | Duyệt: lịch chuyển sang giờ mới |
+| `POST /admin/reschedule-requests/:id/reject` | ADMIN | Từ chối kèm `reason`: lịch giữ giờ cũ, gửi email cho bệnh nhân |
 | `GET /admin/stats` | ADMIN | Số lịch theo khoa, tỉ lệ hủy, khung giờ đông nhất, tỉ lệ đặt qua chatbot |
 
 Lỗi luôn có dạng `{ "error": { "code": "SLOT_TAKEN", "message": "..." } }`, thông điệp tiếng Việt. Thời gian trả về dạng ISO 8601 theo giờ Việt Nam, ví dụ `2026-11-14T08:00:00+07:00`.
@@ -143,3 +147,6 @@ Những chỗ spec chưa nói rõ, chọn phương án đơn giản nhất:
 25. **Thống kê** dùng ô số liệu cho tổng số và các tỉ lệ, cùng thanh ngang một màu cho số lịch theo khoa và theo khung giờ; mỗi thanh có nhãn giá trị và tooltip.
 26. **Logo** được vector hóa từ ảnh PNG gốc thành SVG để sắc nét ở mọi kích thước. Màu logo dùng màu nhấn `#0061ff` của spec (ảnh gốc là `#0052FF`) để giao diện chỉ có một màu nhấn; component `Logo` lấy màu theo `currentColor` nên đổi được bằng một biến CSS.
 27. **Trang Câu hỏi thường gặp**: các câu về đặt lịch, đổi hủy lịch và trợ lý viết cố định theo quy tắc nghiệp vụ của backend; phần thông tin phòng khám đọc từ ClinicInfo qua endpoint công khai chỉ đọc `GET /clinic-info` (bổ sung ngoài bảng API của spec), nên admin sửa ở trang quản trị là FAQ cập nhật theo.
+28. **Đổi lịch cần admin duyệt** (bổ sung ngoài spec theo yêu cầu): bệnh nhân gửi yêu cầu đổi lịch kèm lý do. Trong lúc chờ, lịch hiện "Chờ xác nhận", vẫn giữ giờ cũ, và giờ mới được giữ chỗ bằng một bản ghi `appointments` riêng (`status = PENDING`, `rescheduleOfId` trỏ về lịch gốc), nên khung giờ mới cũng được unique index chống đặt trùng bảo vệ. Duyệt: xóa bản ghi giữ chỗ rồi cập nhật chính lịch gốc sang giờ mới (đúng mục 6), lịch hiện "Đã xác nhận". Từ chối: xóa bản ghi giữ chỗ, lịch giữ nguyên giờ cũ, lưu lý do từ chối và gửi email cho bệnh nhân. Gửi yêu cầu mới thì thay yêu cầu cũ; hủy lịch hoặc bác sĩ đánh dấu đã khám thì bỏ yêu cầu đang chờ. Đổi lịch qua trợ lý AI cũng đi qua cùng quy trình.
+29. **Lý do đổi/hủy lịch** bắt buộc 5–500 ký tự, hiện thành thẻ bên dưới lịch hẹn ở trang "Lịch hẹn của tôi" (yêu cầu đang chờ, đã đổi, bị từ chối, đã hủy). Admin thấy lý do đổi lịch để duyệt; lý do khám vẫn chỉ bệnh nhân và bác sĩ thấy, và không có trong email.
+30. **Email** gửi bằng nodemailer qua SMTP nếu cấu hình; lỗi gửi mail không làm hỏng thao tác từ chối (response có `emailSent`). Chỉ gửi email khi từ chối đổi lịch, đúng yêu cầu.
