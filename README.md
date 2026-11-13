@@ -1,10 +1,10 @@
 # Website đặt lịch khám bệnh tích hợp AI Agent
 
-Backend Node.js + TypeScript (Express, Prisma, MySQL) cho website đặt lịch khám, kèm một AI Agent đặt, đổi, hủy lịch ngay trong khung chat. Agent chạy vòng lặp tool calling trong backend: chỉ đọc dữ liệu thật qua tools và **đề xuất** thao tác ghi; lịch chỉ được ghi khi người dùng bấm Đồng ý.
+Website đặt lịch khám gồm backend Node.js + TypeScript (Express, Prisma, MySQL) và frontend React + Vite, kèm một AI Agent đặt, đổi, hủy lịch ngay trong khung chat. Agent chạy vòng lặp tool calling trong backend: chỉ đọc dữ liệu thật qua tools và **đề xuất** thao tác ghi; lịch chỉ được ghi khi người dùng bấm Đồng ý.
 
 ```
 backend/    API, Prisma schema, migrations, seed, test
-frontend/   (chép frontend xuất từ Claude Artifacts vào đây)
+frontend/   React + Vite + TypeScript, dựng theo bản thiết kế "Phòng khám An Tâm" trên Claude Artifacts
 ```
 
 ## Yêu cầu
@@ -42,7 +42,30 @@ Các lệnh khác: `npm test` (Vitest + Supertest), `npm run typecheck`, `npm ru
 
 ### Test
 
-`npm test` dùng database riêng tên `<tên database>_test` trên cùng server (hoặc `TEST_DATABASE_URL` nếu đặt), được tạo lại từ migrations trước mỗi lần chạy. Test của agent dùng model giả lập, không gọi 9Router thật.
+`npm test` dùng database riêng tên `<tên database>_test` trên cùng server (hoặc `TEST_DATABASE_URL` nếu đặt). Trước khi chạy, migrations được áp vào database đó (`prisma migrate deploy`); mỗi file test tự xóa dữ liệu của database test, và chỉ chạy được trên database có tên kết thúc bằng `_test`. Test của agent dùng model giả lập, không gọi 9Router thật.
+
+## Cài đặt và chạy frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env        # VITE_API_URL=http://localhost:4000/api
+npm run dev                 # http://localhost:5173
+```
+
+`npm run build` kiểm tra kiểu (TypeScript strict) rồi build ra `frontend/dist`. Backend phải cho phép origin của frontend trong `FRONTEND_ORIGIN`.
+
+| Trang | Ai dùng | Nội dung |
+| --- | --- | --- |
+| `/` | Mọi người | Trang chủ, đặt lịch nhanh (xem giờ trống không cần đăng nhập), chuyên khoa, bác sĩ |
+| `/bac-si` | Mọi người | Tìm bác sĩ theo khoa hoặc tên |
+| `/dat-lich` | Bệnh nhân | Chọn khoa → bác sĩ → ngày → khung giờ → lý do |
+| `/lich-hen` | Bệnh nhân | Lịch hẹn của tôi, đổi và hủy lịch |
+| `/lich-kham` | Bác sĩ, Quản trị | Lịch theo Ngày / Tuần / Tháng / Danh sách; bác sĩ đánh dấu đã khám |
+| `/quan-tri` | Quản trị | Thống kê, chuyên khoa, bác sĩ, lịch làm việc, thông tin phòng khám |
+| Khung chat | Bệnh nhân | Trợ lý AI ở góc phải; mở toàn màn hình trên điện thoại |
+
+Màu và kích thước khai báo một chỗ ở `frontend/src/styles/tokens.css` (spec mục 8.1); các file CSS khác chỉ dùng biến.
 
 ## Tài khoản mẫu (sau khi seed)
 
@@ -76,10 +99,11 @@ Tất cả endpoint có tiền tố `/api`, nhận và trả JSON. Token gửi q
 | `POST /chat/sessions` | PATIENT | Tạo phiên chat |
 | `GET /chat/sessions` | PATIENT | Danh sách phiên của tôi |
 | `GET /chat/sessions/:id/messages` | PATIENT (chủ phiên) | Lịch sử tin nhắn và đề xuất đang chờ |
-| `POST /chat/sessions/:id/messages` | PATIENT (chủ phiên) | Gửi `{ content }`, nhận `{ message, pendingAction }`; tối đa 20 tin mỗi phút |
+| `POST /chat/sessions/:id/messages` | PATIENT (chủ phiên) | Gửi `{ content }`, nhận `{ message, pendingAction, slotOptions }`; tối đa 20 tin mỗi phút |
 | `POST /chat/actions/:id/confirm` | PATIENT (chủ thao tác) | Xác nhận đề xuất |
 | `POST /chat/actions/:id/reject` | PATIENT (chủ thao tác) | Từ chối đề xuất |
 | `GET/POST/PATCH/DELETE /admin/specialties`, `/admin/doctors`, `/admin/schedules`, `/admin/clinic-info` | ADMIN | Quản lý dữ liệu nền |
+| `GET /admin/appointments?from=&to=&doctorId=&status=` | ADMIN | Lịch hẹn của mọi bác sĩ trong khoảng ngày (tối đa 62 ngày), không có lý do khám |
 | `GET /admin/stats` | ADMIN | Số lịch theo khoa, tỉ lệ hủy, khung giờ đông nhất, tỉ lệ đặt qua chatbot |
 
 Lỗi luôn có dạng `{ "error": { "code": "SLOT_TAKEN", "message": "..." } }`, thông điệp tiếng Việt. Thời gian trả về dạng ISO 8601 theo giờ Việt Nam, ví dụ `2026-11-14T08:00:00+07:00`.
@@ -105,3 +129,11 @@ Những chỗ spec chưa nói rõ, chọn phương án đơn giản nhất:
 15. **Thông tin công khai của bác sĩ** không gồm email và số điện thoại.
 16. **Đánh dấu đã khám** không giới hạn thời điểm; chỉ yêu cầu lịch đang CONFIRMED và thuộc bác sĩ đó.
 17. **Prisma 6** thay vì Prisma 7, vì Prisma 7 bắt buộc driver adapter và file cấu hình mới. `npm audit` cảnh báo `deepmerge-ts` trong Prisma CLI; gói này chỉ dùng lúc phát triển.
+18. **Bản thiết kế frontend** là một artifact dạng Design (mockup HTML, dữ liệu giả) chứ không phải mã nguồn. Frontend được dựng lại bằng React + Vite, giữ bố cục và các màn hình của thiết kế, làm lại style theo mục 8.1 (màu nhấn `#0061ff`, font hệ thống, không tải font ngoài).
+19. **Màn hình "Lịch khám"** trong thiết kế dành cho vai trò Lễ tân, với các trạng thái Chờ xác nhận / Check-in / Vắng mặt và nút "Đặt lịch hộ". Spec không có vai trò này, nên các màn hình Ngày / Tuần / Tháng / Danh sách dùng cho Quản trị (mọi bác sĩ) và Bác sĩ (lịch của mình), chỉ với 3 trạng thái của spec. Bỏ check-in, chờ xác nhận, vắng mặt, đặt lịch hộ.
+20. **Nút chọn giờ trong khung chat** (có trong thiết kế): response của chat trả thêm `slotOptions`, là các khung giờ trống agent vừa tra trong lượt đó. Bấm một nút sẽ gửi giờ đó cho agent như một tin nhắn; agent vẫn phải gọi `propose_booking` và người dùng vẫn phải bấm Đồng ý. Không trả `slotOptions` khi đã có đề xuất chờ xác nhận.
+21. **Bỏ các tính năng ngoài spec** của thiết kế: đặt lịch hộ người thân, nút "Gặp nhân viên" (giữ link gọi hotline).
+22. **Cảnh báo cấp cứu trong chat**: tin nhắn của trợ lý được hiển thị dạng thẻ đỏ kèm nút "Gọi 115 ngay" khi đoạn mở đầu của nó khuyên gọi 115. Nội dung vẫn do agent quyết định theo system prompt.
+23. **Phiên chat**: mở khung chat sẽ dùng lại phiên gần nhất nếu phiên đó có hoạt động trong 12 giờ qua, nếu không thì tạo phiên mới; có nút "Cuộc trò chuyện mới". Đặt lịch qua chat xong, trang "Lịch hẹn của tôi" tự tải lại qua một tín hiệu dùng chung trong frontend.
+24. **Thông tin ở chân trang** (địa chỉ, giờ làm việc, hotline 1900 0000) viết cố định khớp với dữ liệu seed, vì API thông tin phòng khám chỉ dành cho admin.
+25. **Thống kê** dùng ô số liệu cho tổng số và các tỉ lệ, cùng thanh ngang một màu cho số lịch theo khoa và theo khung giờ; mỗi thanh có nhãn giá trị và tooltip.
