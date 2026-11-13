@@ -59,6 +59,7 @@ npm run dev                 # http://localhost:5173
 | --- | --- | --- |
 | `/` | Mọi người | Trang chủ, đặt lịch nhanh (xem giờ trống không cần đăng nhập), chuyên khoa, bác sĩ |
 | `/bac-si` | Mọi người | Tìm bác sĩ theo khoa hoặc tên |
+| `/cau-hoi-thuong-gap` | Mọi người | Câu hỏi thường gặp, tìm kiếm không dấu; phần thông tin phòng khám lấy từ ClinicInfo |
 | `/dat-lich` | Bệnh nhân | Chọn khoa → bác sĩ → ngày → khung giờ → lý do |
 | `/lich-hen` | Bệnh nhân | Lịch hẹn của tôi, đổi và hủy lịch |
 | `/lich-kham` | Bác sĩ, Quản trị | Lịch theo Ngày / Tuần / Tháng / Danh sách; bác sĩ đánh dấu đã khám |
@@ -93,6 +94,7 @@ Tất cả endpoint có tiền tố `/api`, nhận và trả JSON. Token gửi q
 | `GET /doctors?specialtyId=&q=` | Công khai | Tìm bác sĩ theo khoa hoặc tên |
 | `GET /doctors/:id` | Công khai | Chi tiết bác sĩ kèm lịch làm việc |
 | `GET /doctors/:id/slots?date=YYYY-MM-DD` | Công khai | Khung giờ còn trống trong ngày |
+| `GET /clinic-info` | Công khai | Thông tin phòng khám (chỉ đọc), dùng cho trang Câu hỏi thường gặp |
 | `POST /appointments` | PATIENT | Đặt lịch: `doctorId`, `startTime`, `reason` |
 | `GET /appointments/me?status=` | PATIENT, DOCTOR | Lịch hẹn của tôi |
 | `PATCH /appointments/:id/reschedule` | PATIENT (chủ lịch) | Đổi sang `startTime` mới |
@@ -140,3 +142,4 @@ Những chỗ spec chưa nói rõ, chọn phương án đơn giản nhất:
 24. **Thông tin ở chân trang** (địa chỉ, giờ làm việc, hotline 1900 0000) viết cố định khớp với dữ liệu seed, vì API thông tin phòng khám chỉ dành cho admin.
 25. **Thống kê** dùng ô số liệu cho tổng số và các tỉ lệ, cùng thanh ngang một màu cho số lịch theo khoa và theo khung giờ; mỗi thanh có nhãn giá trị và tooltip.
 26. **Logo** được vector hóa từ ảnh PNG gốc thành SVG để sắc nét ở mọi kích thước. Màu logo dùng màu nhấn `#0061ff` của spec (ảnh gốc là `#0052FF`) để giao diện chỉ có một màu nhấn; component `Logo` lấy màu theo `currentColor` nên đổi được bằng một biến CSS.
+27. **Trang Câu hỏi thường gặp**: các câu về đặt lịch, đổi hủy lịch và trợ lý viết cố định theo quy tắc nghiệp vụ của backend; phần thông tin phòng khám đọc từ ClinicInfo qua endpoint công khai chỉ đọc `GET /clinic-info` (bổ sung ngoài bảng API của spec), nên admin sửa ở trang quản trị là FAQ cập nhật theo.

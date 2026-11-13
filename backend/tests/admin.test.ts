@@ -101,6 +101,11 @@ describe('Lịch làm việc và thông tin phòng khám', () => {
     const id = created.body.item.id;
     expect((await request(app).patch(`/api/admin/clinic-info/${id}`).set(as()).send({ content: '07:30-17:00' })).body.item.content).toBe('07:30-17:00');
     expect((await request(app).get('/api/admin/clinic-info').set(as())).body.items).toHaveLength(1);
+    // Trang FAQ đọc được mà không cần đăng nhập, nhưng không sửa được.
+    const pub = await request(app).get('/api/clinic-info');
+    expect(pub.status).toBe(200);
+    expect(pub.body.items).toEqual([{ id, topic: 'Giờ làm việc', content: '07:30-17:00' }]);
+    expect((await request(app).post('/api/clinic-info').send({ topic: 'X', content: 'Y' })).status).toBe(404);
     expect((await request(app).delete(`/api/admin/clinic-info/${id}`).set(as())).status).toBe(204);
   });
 });

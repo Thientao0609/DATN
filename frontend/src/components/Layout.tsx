@@ -18,6 +18,7 @@ function linksFor(role: Role | null): { to: string; label: string }[] {
   const publicLinks = [
     { to: '/bac-si', label: 'Bác sĩ' },
     { to: '/dat-lich', label: 'Đặt lịch khám' },
+    { to: '/cau-hoi-thuong-gap', label: 'Câu hỏi thường gặp' },
   ];
   if (role === 'PATIENT') return [...publicLinks, { to: '/lich-hen', label: 'Lịch hẹn của tôi' }];
   if (role === 'DOCTOR') return [{ to: '/lich-kham', label: 'Lịch khám' }];
@@ -110,6 +111,18 @@ function Footer() {
           ))}
           <p>Đặt lịch online 24/7</p>
         </div>
+        <nav aria-label="Hỗ trợ">
+          <h3>Hỗ trợ</h3>
+          <p>
+            <Link to="/cau-hoi-thuong-gap">Câu hỏi thường gặp</Link>
+          </p>
+          <p>
+            <Link to="/dat-lich">Đặt lịch khám</Link>
+          </p>
+          <p>
+            <Link to="/bac-si">Tìm bác sĩ</Link>
+          </p>
+        </nav>
         <div>
           <h3>Liên hệ</h3>
           <p>

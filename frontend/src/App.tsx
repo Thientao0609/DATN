@@ -8,6 +8,7 @@ import { AdminPage } from './pages/AdminPage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import { BookingPage } from './pages/BookingPage';
 import { DoctorsPage } from './pages/DoctorsPage';
+import { FaqPage } from './pages/FaqPage';
 import { HomePage } from './pages/HomePage';
 import { MyAppointmentsPage } from './pages/MyAppointmentsPage';
 import { SchedulePage } from './pages/SchedulePage';
@@ -53,6 +54,7 @@ export function App() {
         <Route path="dang-ky" element={<RegisterPage />} />
         <Route path="bac-si" element={<DoctorsPage />} />
         <Route path="dat-lich" element={<BookingPage />} />
+        <Route path="cau-hoi-thuong-gap" element={<FaqPage />} />
         <Route
           path="lich-hen"
           element={

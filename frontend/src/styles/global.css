@@ -1281,3 +1281,91 @@ textarea {
 body {
   overflow-x: hidden;
 }
+
+/* ---------------- Câu hỏi thường gặp ---------------- */
+.faq-page {
+  max-width: calc(var(--content-max) * 0.75 + 2 * var(--page-gutter));
+}
+
+.faq-chip {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.faq-chip:hover {
+  text-decoration: none;
+}
+
+.faq-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  scroll-margin-top: calc(var(--nav-height) + var(--space-2));
+}
+
+.faq-group h2 {
+  font-size: var(--font-size-h3);
+  letter-spacing: 0;
+}
+
+.faq-list {
+  border-top: var(--border-hairline);
+}
+
+.faq-item {
+  border-bottom: var(--border-hairline);
+}
+
+.faq-item summary {
+  list-style: none;
+  min-height: var(--control-height);
+  padding: var(--space-2) 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  border-radius: var(--radius-control);
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item summary:hover {
+  color: var(--color-primary);
+}
+
+.faq-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  transition: transform var(--transition);
+}
+
+.faq-item[open] .faq-chevron {
+  transform: rotate(90deg);
+}
+
+.faq-answer {
+  padding: 0 0 var(--space-2);
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.faq-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.faq-cta h2 {
+  font-size: var(--font-size-h3);
+  letter-spacing: 0;
+}
