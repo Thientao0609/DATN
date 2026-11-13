@@ -1,0 +1,264 @@
+/* Lịch khám (bác sĩ, quản trị) và trang quản trị. Chỉ dùng biến trong tokens.css. */
+.cal-title {
+  font-size: var(--font-size-h3);
+  letter-spacing: 0;
+  margin-left: var(--space-1);
+}
+
+.cal-filter {
+  min-width: var(--card-min);
+}
+
+.stat-tiles {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--card-min) * 0.66), 1fr));
+}
+
+.stat-tile {
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-card);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.stat-tile strong {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-title);
+  line-height: var(--line-height-title);
+}
+
+.cal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
+  table-layout: fixed;
+}
+
+.cal-table th,
+.cal-table td {
+  border-bottom: var(--border-hairline);
+  padding: var(--space-1);
+  vertical-align: middle;
+  text-align: left;
+}
+
+.cal-table thead th {
+  background: var(--color-bg-subtle);
+  min-width: var(--card-min);
+}
+
+.cal-table thead th:first-child,
+.cal-time {
+  width: calc(var(--slot-min) - var(--space-1));
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.cal-col-title {
+  display: block;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-break {
+  text-align: center !important;
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+
+.cal-appt {
+  width: 100%;
+  min-height: var(--control-height);
+  border: var(--border-hairline);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  padding: var(--space-1);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--transition);
+}
+
+.cal-appt:hover {
+  border-color: var(--color-primary);
+}
+
+.cal-appt-confirmed {
+  border-color: var(--color-primary-tint);
+  background: var(--color-primary-tint);
+}
+
+.cal-appt-completed {
+  background: var(--color-bg-subtle);
+}
+
+.cal-appt-name {
+  font-weight: var(--font-weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.cal-free {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-height);
+  border: var(--border-hairline);
+  border-style: dashed;
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+
+.cal-past {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-height);
+  color: var(--color-text-secondary);
+}
+
+.cal-off {
+  display: block;
+  min-height: var(--control-height);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-subtle);
+}
+
+/* Lịch tháng */
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.month-head {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.month-cell {
+  min-height: calc(var(--control-height) * 2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition);
+  min-width: 0;
+}
+
+button.month-cell:hover {
+  border-color: var(--color-primary);
+}
+
+.month-empty {
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.month-closed {
+  background: var(--color-bg-subtle);
+  border-color: transparent;
+  cursor: default;
+}
+
+.month-today {
+  border-color: var(--color-primary);
+}
+
+.month-num {
+  font-weight: var(--font-weight-semibold);
+}
+
+.month-bar {
+  width: 100%;
+  height: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-subtle);
+  overflow: hidden;
+  margin-top: auto;
+}
+
+.month-bar span {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-pill);
+}
+
+@media (max-width: 600px) {
+  .month-cell .caption {
+    display: none;
+  }
+}
+
+/* Quản trị */
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.bar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 10em) minmax(0, 1fr) 9em;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-small);
+}
+
+.bar-track {
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-subtle);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-pill);
+}
+
+.bar-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}

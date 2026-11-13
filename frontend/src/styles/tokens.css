@@ -1,0 +1,99 @@
+/*
+ * Toàn bộ màu và kích thước của giao diện (spec mục 8.1).
+ * Component chỉ dùng các biến trong file này, không viết mã màu trực tiếp.
+ * Phong cách tối giản: nền sáng, nhiều khoảng trắng, một màu nhấn duy nhất.
+ */
+:root {
+  /* Màu */
+  --color-primary: #0061ff;
+  --color-primary-hover: #0052d9;
+  --color-primary-tint: #e8f0ff;
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f5f5f7;
+  --color-text: #1d1d1f;
+  --color-text-secondary: #6e6e73;
+  --color-border: #d2d2d7;
+  --color-danger: #d70015;
+  --color-success: #248a3d;
+  /* Màu phụ suy ra từ các màu trên */
+  --color-on-primary: #ffffff;
+  --color-danger-tint: #fdeced;
+  --color-success-tint: #e9f5ec;
+  --color-nav-bg: rgba(255, 255, 255, 0.72);
+  --color-overlay: rgba(29, 29, 31, 0.36);
+
+  /* Bề mặt */
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --shadow-float: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --border-hairline: 1px solid var(--color-border);
+
+  /* Bo góc */
+  --radius-card: 16px;
+  --radius-control: 12px;
+  --radius-pill: 999px;
+
+  /* Khoảng cách: bội số của 8px */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 40px;
+  --space-6: 48px;
+  --space-8: 64px;
+  --space-10: 80px;
+
+  /* Kích thước */
+  --content-max: 1080px;
+  --page-gutter: 16px;
+  --control-height: 44px;
+  --nav-height: 56px;
+  --chat-width: 380px;
+  --chat-height: 600px;
+  --chat-launcher: 56px;
+  --icon-size: 20px;
+  --avatar-size: 48px;
+  --focus-width: 2px;
+  --control-height-sm: 40px;
+  --badge-height: 24px;
+  --mark-size: 32px;
+  --slot-min: 88px;
+  --card-min: 240px;
+  --step-min: 220px;
+  --footer-col-min: 200px;
+  --modal-max: 560px;
+  --nav-user-max: 160px;
+  --textarea-min: 96px;
+  --arrow-size: 5px;
+  --spinner-border: 2px;
+  --nav-blur: 20px;
+
+  /* Chữ (font hệ thống, không tải font ngoài) */
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-size-title: clamp(32px, 5vw, 40px);
+  --font-size-h2: 28px;
+  --font-size-h3: 19px;
+  --font-size-body: 17px;
+  --font-size-small: 15px;
+  --font-size-caption: 13px;
+  --font-weight-regular: 400;
+  --font-weight-semibold: 600;
+  --line-height-body: 1.5;
+  --line-height-title: 1.15;
+  --letter-spacing-title: -0.02em;
+
+  /* Chuyển động */
+  --transition: 200ms ease;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --page-gutter: 24px;
+    --font-size-body: 17px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition: 0ms linear;
+  }
+}
