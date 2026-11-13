@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { Spinner } from './components/common';
 import { useAuth } from './context/AuthContext';
 import type { Role } from './lib/types';
+import { AdminPage } from './pages/AdminPage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import { BookingPage } from './pages/BookingPage';
 import { DoctorsPage } from './pages/DoctorsPage';
@@ -65,6 +66,14 @@ export function App() {
           element={
             <RequireRole roles={['DOCTOR', 'ADMIN']}>
               <SchedulePage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="quan-tri"
+          element={
+            <RequireRole roles={['ADMIN']}>
+              <AdminPage />
             </RequireRole>
           }
         />
