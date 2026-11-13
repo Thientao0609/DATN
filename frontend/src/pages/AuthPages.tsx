@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router';
 import { ErrorAlert } from '../components/common';
+import { Logo } from '../components/Logo';
 import { homeFor, useAuth } from '../context/AuthContext';
 import { errorMessage } from '../lib/api';
 
@@ -44,6 +45,9 @@ export function LoginPage() {
     <div className="container auth-page">
       <form className="card-elevated form auth-card" onSubmit={submit} noValidate>
         <div className="page-header">
+          <span className="auth-logo">
+            <Logo size={56} />
+          </span>
           <h1 style={{ fontSize: 'var(--font-size-h2)' }}>Đăng nhập</h1>
           <p className="muted small">Đăng nhập để đặt lịch, xem lịch hẹn và trò chuyện với trợ lý.</p>
         </div>
@@ -117,6 +121,9 @@ export function RegisterPage() {
     <div className="container auth-page">
       <form className="card-elevated form auth-card" onSubmit={submit} noValidate>
         <div className="page-header">
+          <span className="auth-logo">
+            <Logo size={56} />
+          </span>
           <h1 style={{ fontSize: 'var(--font-size-h2)' }}>Tạo tài khoản</h1>
           <p className="muted small">Tài khoản bệnh nhân để đặt và quản lý lịch khám.</p>
         </div>

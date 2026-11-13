@@ -67,6 +67,8 @@ npm run dev                 # http://localhost:5173
 
 Màu và kích thước khai báo một chỗ ở `frontend/src/styles/tokens.css` (spec mục 8.1); các file CSS khác chỉ dùng biến.
 
+Logo của dự án nằm ở `frontend/public/logo.svg` (cũng là favicon) và component `frontend/src/components/Logo.tsx`, dùng ở thanh điều hướng, chân trang, trang đăng nhập/đăng ký và trợ lý chat. `apple-touch-icon.png` là icon khi thêm vào màn hình chính điện thoại.
+
 ## Tài khoản mẫu (sau khi seed)
 
 | Vai trò | Email | Mật khẩu |
@@ -137,3 +139,4 @@ Những chỗ spec chưa nói rõ, chọn phương án đơn giản nhất:
 23. **Phiên chat**: mở khung chat sẽ dùng lại phiên gần nhất nếu phiên đó có hoạt động trong 12 giờ qua, nếu không thì tạo phiên mới; có nút "Cuộc trò chuyện mới". Đặt lịch qua chat xong, trang "Lịch hẹn của tôi" tự tải lại qua một tín hiệu dùng chung trong frontend.
 24. **Thông tin ở chân trang** (địa chỉ, giờ làm việc, hotline 1900 0000) viết cố định khớp với dữ liệu seed, vì API thông tin phòng khám chỉ dành cho admin.
 25. **Thống kê** dùng ô số liệu cho tổng số và các tỉ lệ, cùng thanh ngang một màu cho số lịch theo khoa và theo khung giờ; mỗi thanh có nhãn giá trị và tooltip.
+26. **Logo** được vector hóa từ ảnh PNG gốc thành SVG để sắc nét ở mọi kích thước. Màu logo dùng màu nhấn `#0061ff` của spec (ảnh gốc là `#0052FF`) để giao diện chỉ có một màu nhấn; component `Logo` lấy màu theo `currentColor` nên đổi được bằng một biến CSS.

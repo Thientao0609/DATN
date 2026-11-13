@@ -97,7 +97,10 @@ function Footer() {
     <footer className="footer">
       <div className="container footer-grid">
         <div>
-          <h3>{CLINIC.name}</h3>
+          <div className="footer-brand">
+            <BrandMark />
+            <h3>{CLINIC.name}</h3>
+          </div>
           <p>{CLINIC.address}</p>
         </div>
         <div>

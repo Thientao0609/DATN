@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { Icon } from '../Icon';
+import { Logo } from '../Logo';
 import { CLINIC } from '../Layout';
 import { ChatPanel } from './ChatPanel';
 
@@ -31,7 +32,7 @@ export function ChatWidget() {
   if (!chatOpen) {
     return (
       <button type="button" className="chat-launcher" onClick={() => openChat()} aria-label="Mở Trợ lý An Tâm">
-        <Icon name="chat" />
+        <Logo size={24} />
         <span>Hỏi trợ lý</span>
       </button>
     );
@@ -41,7 +42,7 @@ export function ChatWidget() {
     <section className="chat-panel" role="dialog" aria-label="Trợ lý An Tâm">
       <header className="chat-header">
         <span className="avatar chat-avatar" aria-hidden="true">
-          <Icon name="chat" />
+          <Logo size={24} />
         </span>
         <div className="chat-title">
           <h2>Trợ lý An Tâm</h2>

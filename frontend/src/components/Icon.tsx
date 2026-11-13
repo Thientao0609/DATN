@@ -1,4 +1,5 @@
 import type { SVGProps } from 'react';
+import { Logo } from './Logo';
 
 const PATHS = {
   plus: 'M12 5v14M5 12h14',
@@ -41,7 +42,7 @@ export function Icon({ name, size = 20, ...rest }: { name: IconName; size?: numb
 export function BrandMark() {
   return (
     <span className="brand-mark" aria-hidden="true">
-      <Icon name="plus" size={18} strokeWidth={3} />
+      <Logo size={32} />
     </span>
   );
 }
