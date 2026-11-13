@@ -105,6 +105,32 @@ describe('Lịch làm việc và thông tin phòng khám', () => {
   });
 });
 
+describe('Lịch khám của admin', () => {
+  it('xem lịch mọi bác sĩ theo khoảng ngày, lọc theo bác sĩ, không có lý do khám', async () => {
+    const { doctor: d1 } = await createDoctor({ fullName: 'Bác sĩ Một' });
+    const { doctor: d2 } = await createDoctor({ fullName: 'Bác sĩ Hai' });
+    const patient = await createUser(Role.PATIENT, { fullName: 'Bệnh nhân A' });
+    const date = workingDate(2);
+    for (const [doctorId, time] of [[d1.id, '08:00'], [d2.id, '09:00']] as const) {
+      await request(app).post('/api/appointments').set(authHeader(patient)).send({ doctorId, startTime: `${date}T${time}:00+07:00`, reason: 'BI_MAT_SUC_KHOE' });
+    }
+    const res = await request(app).get('/api/admin/appointments').query({ from: date, to: date }).set(as());
+    expect(res.status).toBe(200);
+    expect(res.body.appointments).toHaveLength(2);
+    expect(res.body.appointments[0]).toMatchObject({
+      startTime: `${date}T08:00:00+07:00`,
+      status: 'CONFIRMED',
+      doctor: { fullName: 'Bác sĩ Một' },
+      patient: { fullName: 'Bệnh nhân A' },
+    });
+    expect(JSON.stringify(res.body)).not.toContain('BI_MAT_SUC_KHOE');
+    const filtered = await request(app).get('/api/admin/appointments').query({ from: date, to: date, doctorId: d2.id }).set(as());
+    expect(filtered.body.appointments.map((a: { doctor: { id: string } }) => a.doctor.id)).toEqual([d2.id]);
+    expect((await request(app).get('/api/admin/appointments').query({ from: date }).set(as())).status).toBe(400);
+    expect((await request(app).get('/api/admin/appointments').query({ from: date, to: date }).set(authHeader(patient))).status).toBe(403);
+  });
+});
+
 describe('Thống kê', () => {
   it('đếm theo khoa, tỉ lệ hủy, khung giờ đông nhất, tỉ lệ đặt qua chatbot; không lộ lý do khám', async () => {
     const tmh = await createSpecialty('Tai mũi họng');

@@ -105,6 +105,31 @@ describe('Vòng lặp agent với model giả lập', () => {
     expect(slotsResult.slots).toHaveLength(14);
   });
 
+  it('trả slotOptions có cấu trúc để frontend hiện nút chọn giờ; không trả khi đã có đề xuất', async () => {
+    const da = await createSpecialty('Da liễu');
+    const { doctor } = await createDoctor({ specialtyId: da.id, fullName: 'Phạm Thu Dung' });
+    const patient = await createUser();
+    const date = workingDate(2);
+    setLlmClient(
+      new ScriptedLlm([
+        toolCallStep('get_available_slots', { doctorId: doctor.id, date }),
+        textStep('Bác sĩ còn các giờ sau, bạn chọn giờ nào?'),
+        toolCallStep('get_available_slots', { doctorId: doctor.id, date }),
+        toolCallStep('propose_booking', { doctorId: doctor.id, startTime: vnIso(date, '08:00'), reason: REASON }),
+        textStep('Bấm Đồng ý nhé.'),
+      ]),
+    );
+    const sessionId = await newSession(patient);
+    const first = await send(patient, sessionId, 'Xem giờ trống');
+    expect(first.body.slotOptions).toHaveLength(1);
+    expect(first.body.slotOptions[0]).toMatchObject({ doctorId: doctor.id, doctorName: 'Phạm Thu Dung', specialtyName: 'Da liễu', date });
+    expect(first.body.slotOptions[0].dateText).toMatch(/^Thứ .+, \d{2}\/\d{2}\/\d{4}$/);
+    expect(first.body.slotOptions[0].slots[0]).toEqual({ startTime: vnIso(date, '08:00'), time: '08:00' });
+    const second = await send(patient, sessionId, 'Đặt 8 giờ');
+    expect(second.body.pendingAction).not.toBeNull();
+    expect(second.body.slotOptions).toEqual([]);
+  });
+
   it('propose_booking không tạo Appointment cho tới khi người dùng xác nhận', async () => {
     const { doctor } = await createDoctor({ fullName: 'Lê Minh Châu' });
     const patient = await createUser();

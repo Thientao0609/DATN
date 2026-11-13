@@ -401,3 +401,46 @@ export async function listMyAppointments(user: { id: string; role: Role }, statu
   });
   return rows.map(toAppointmentDto);
 }
+
+// ---------------------------------------------------------------------------
+// Lịch khám cho ADMIN (không đọc lý do khám — dữ liệu sức khỏe)
+// ---------------------------------------------------------------------------
+
+const adminAppointmentSelect = {
+  id: true,
+  startTime: true,
+  endTime: true,
+  status: true,
+  createdVia: true,
+  doctor: { select: { id: true, user: { select: { fullName: true } }, specialty: { select: { id: true, name: true } } } },
+  patient: { select: { id: true, fullName: true, phone: true } },
+} satisfies Prisma.AppointmentSelect;
+
+/** Lịch hẹn của mọi bác sĩ từ ngày `from` đến hết ngày `to` (giờ Việt Nam), tối đa 62 ngày. */
+export async function listAppointmentsForAdmin(filter: { from: string; to: string; doctorId?: string; status?: AppointmentStatus }) {
+  if (!isValidDateString(filter.from) || !isValidDateString(filter.to)) {
+    throw new AppError('VALIDATION_ERROR', 'Ngày không hợp lệ, dùng định dạng YYYY-MM-DD.');
+  }
+  const start = vnDateMinutesToUtc(filter.from, 0);
+  const end = new Date(vnDateMinutesToUtc(filter.to, 0).getTime() + DAY_MS);
+  if (end <= start) throw new AppError('VALIDATION_ERROR', 'Ngày kết thúc phải từ ngày bắt đầu trở đi.');
+  if (end.getTime() - start.getTime() > 62 * DAY_MS) throw new AppError('VALIDATION_ERROR', 'Chỉ xem tối đa 62 ngày một lần.');
+  const rows = await prisma.appointment.findMany({
+    where: {
+      startTime: { gte: start, lt: end },
+      ...(filter.doctorId ? { doctorId: filter.doctorId } : {}),
+      ...(filter.status ? { status: filter.status } : {}),
+    },
+    select: adminAppointmentSelect,
+    orderBy: { startTime: 'asc' },
+  });
+  return rows.map((a) => ({
+    id: a.id,
+    startTime: toVnIso(a.startTime),
+    endTime: toVnIso(a.endTime),
+    status: a.status,
+    createdVia: a.createdVia,
+    doctor: { id: a.doctor.id, fullName: a.doctor.user.fullName, specialty: a.doctor.specialty },
+    patient: a.patient,
+  }));
+}

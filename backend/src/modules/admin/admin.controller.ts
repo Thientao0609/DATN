@@ -5,7 +5,9 @@ import * as doctors from '../doctors/doctors.admin.service.js';
 import * as schedules from '../schedules/schedules.service.js';
 import * as clinicInfo from './clinic-info.service.js';
 import { getStats } from './stats.service.js';
+import { listAppointmentsForAdmin } from '../appointments/appointments.service.js';
 import {
+  appointmentsQuerySchema,
   clinicInfoPatchSchema,
   clinicInfoSchema,
   createDoctorSchema,
@@ -78,6 +80,11 @@ export async function updateClinicInfo(req: Request, res: Response) {
 export async function deleteClinicInfo(req: Request, res: Response) {
   await clinicInfo.deleteClinicInfo(idOf(req));
   res.status(204).end();
+}
+
+// Lịch khám (không có lý do khám)
+export async function listAppointments(req: Request, res: Response) {
+  res.json({ appointments: await listAppointmentsForAdmin(appointmentsQuerySchema.parse(req.query)) });
 }
 
 // Thống kê

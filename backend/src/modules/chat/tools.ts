@@ -8,7 +8,7 @@ import { AppError } from '../../lib/errors.js';
 import { formatVnDateTime, toVnIso, vnDayOfWeek } from '../../lib/time.js';
 import { dateSchema, dateTimeSchema, idSchema, reasonSchema, toDate } from '../../lib/validation.js';
 import { listSpecialties } from '../specialties/specialties.service.js';
-import { searchDoctors } from '../doctors/doctors.service.js';
+import { getDoctor, searchDoctors } from '../doctors/doctors.service.js';
 import { searchClinicInfo } from '../admin/clinic-info.service.js';
 import {
   checkBooking,
@@ -26,6 +26,27 @@ export interface ToolContext {
   now: Date;
   /** Đề xuất tạo ra trong lượt chat hiện tại. */
   createdPendingActionId: string | null;
+  /** Khung giờ trống đã tra trong lượt này, để frontend hiện nút chọn giờ. */
+  slotGroups: SlotGroup[];
+}
+
+/** Một nhóm khung giờ trống của một bác sĩ trong một ngày. */
+export interface SlotGroup {
+  doctorId: string;
+  doctorName: string;
+  specialtyName: string;
+  date: string;
+  /** "Thứ bảy, 14/11/2026" */
+  dateText: string;
+  slots: { startTime: string; time: string }[];
+}
+
+const MAX_SLOT_GROUPS = 3;
+
+function rememberSlotGroup(ctx: ToolContext, group: SlotGroup): void {
+  ctx.slotGroups = ctx.slotGroups.filter((g) => !(g.doctorId === group.doctorId && g.date === group.date));
+  ctx.slotGroups.push(group);
+  if (ctx.slotGroups.length > MAX_SLOT_GROUPS) ctx.slotGroups.shift();
 }
 
 export interface AgentTool {
@@ -93,6 +114,17 @@ export const agentTools: AgentTool[] = [
     }),
     execute: async (args, ctx) => {
       const slots = await getAvailableSlots(args.doctorId, args.date, ctx.now);
+      if (slots.length > 0) {
+        const doctor = await getDoctor(args.doctorId);
+        rememberSlotGroup(ctx, {
+          doctorId: doctor.id,
+          doctorName: doctor.fullName,
+          specialtyName: doctor.specialty.name,
+          date: args.date,
+          dateText: `${WEEKDAYS[vnDayOfWeek(args.date)]}, ${args.date.slice(8, 10)}/${args.date.slice(5, 7)}/${args.date.slice(0, 4)}`,
+          slots: slots.map((s) => ({ startTime: s.startTime, time: s.time })),
+        });
+      }
       return {
         doctorId: args.doctorId,
         date: args.date,

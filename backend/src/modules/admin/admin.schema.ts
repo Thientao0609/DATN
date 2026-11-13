@@ -1,5 +1,6 @@
+import { AppointmentStatus } from '@prisma/client';
 import { z } from 'zod';
-import { idSchema, timeSchema } from '../../lib/validation.js';
+import { dateSchema, idSchema, timeSchema } from '../../lib/validation.js';
 import { emailSchema, fullNameSchema, passwordSchema, phoneSchema } from '../auth/auth.schema.js';
 
 const text = (label: string, max: number) =>
@@ -38,3 +39,10 @@ export const clinicInfoSchema = z.object({
   content: text('nội dung', 5000),
 });
 export const clinicInfoPatchSchema = clinicInfoSchema.partial();
+
+export const appointmentsQuerySchema = z.object({
+  from: dateSchema,
+  to: dateSchema,
+  doctorId: idSchema.optional(),
+  status: z.enum(AppointmentStatus, { error: 'Trạng thái không hợp lệ.' }).optional(),
+});

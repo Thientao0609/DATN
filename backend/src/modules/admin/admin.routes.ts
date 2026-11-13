@@ -27,6 +27,7 @@ export function adminRoutes(): Router {
   router.patch('/clinic-info/:id', c.updateClinicInfo);
   router.delete('/clinic-info/:id', c.deleteClinicInfo);
 
+  router.get('/appointments', c.listAppointments);
   router.get('/stats', c.stats);
   return router;
 }

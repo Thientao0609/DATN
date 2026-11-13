@@ -7,7 +7,7 @@ import { env } from '../../config/env.js';
 import { AppError } from '../../lib/errors.js';
 import { chatWithTimeout, getLlmClient, type LlmMessage, type LlmResponse, type LlmToolCall } from './llm.js';
 import { buildSystemPrompt } from './prompt.js';
-import { executeToolCall, toolDefinitionsForModel, type ToolContext } from './tools.js';
+import { executeToolCall, toolDefinitionsForModel, type SlotGroup, type ToolContext } from './tools.js';
 import {
   getPendingActionDto,
   loadRecentMessages,
@@ -65,6 +65,8 @@ export function toModelHistory(rows: ChatMessage[]): LlmMessage[] {
 export interface AgentTurnResult {
   message: MessageDto;
   pendingAction: PendingActionDto | null;
+  /** Khung giờ trống agent vừa tra trong lượt này; rỗng khi đã có đề xuất chờ xác nhận. */
+  slotOptions: SlotGroup[];
 }
 
 export async function runAgentTurn(params: {
@@ -86,7 +88,7 @@ export async function runAgentTurn(params: {
     ...history,
   ];
   const tools = toolDefinitionsForModel();
-  const ctx: ToolContext = { userId: params.user.id, sessionId: params.sessionId, now, createdPendingActionId: null };
+  const ctx: ToolContext = { userId: params.user.id, sessionId: params.sessionId, now, createdPendingActionId: null, slotGroups: [] };
 
   for (let round = 1; round <= AGENT_LIMITS.maxRounds; round++) {
     // 3. Gọi model kèm danh sách tools.
@@ -114,14 +116,19 @@ export async function runAgentTurn(params: {
     // 5. Model trả văn bản: lưu và trả về.
     const text = response.content?.trim() || 'Xin lỗi, mình chưa có câu trả lời phù hợp. Bạn có thể nói rõ hơn không?';
     const saved = await saveMessage(params.sessionId, { role: ChatRole.assistant, content: text });
-    return { message: toMessageDto(saved), pendingAction: await pendingActionOf(ctx) };
+    return finish(saved, ctx);
   }
 
   const fallback = await saveMessage(params.sessionId, {
     role: ChatRole.assistant,
     content: 'Xin lỗi, yêu cầu này cần quá nhiều bước nên mình chưa xử lý xong. Bạn thử nói ngắn gọn hơn, hoặc dùng form đặt lịch nhé.',
   });
-  return { message: toMessageDto(fallback), pendingAction: await pendingActionOf(ctx) };
+  return finish(fallback, ctx);
+}
+
+async function finish(message: ChatMessage, ctx: ToolContext): Promise<AgentTurnResult> {
+  const pendingAction = await pendingActionOf(ctx);
+  return { message: toMessageDto(message), pendingAction, slotOptions: pendingAction ? [] : ctx.slotGroups };
 }
 
 async function pendingActionOf(ctx: ToolContext): Promise<PendingActionDto | null> {
