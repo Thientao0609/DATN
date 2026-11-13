@@ -6,6 +6,7 @@ import { authRoutes } from './modules/auth/auth.routes.js';
 import { specialtiesRoutes } from './modules/specialties/specialties.routes.js';
 import { doctorsRoutes } from './modules/doctors/doctors.routes.js';
 import { appointmentsRoutes } from './modules/appointments/appointments.routes.js';
+import { chatRoutes } from './modules/chat/chat.routes.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
 
 /** Tạo app Express. Mỗi lần gọi có bộ đếm rate limit riêng (tiện cho test). */
@@ -22,6 +23,7 @@ export function createApp(): Express {
   app.use('/api/specialties', specialtiesRoutes());
   app.use('/api/doctors', doctorsRoutes());
   app.use('/api/appointments', appointmentsRoutes());
+  app.use('/api/chat', chatRoutes());
   app.use('/api/admin', adminRoutes());
 
   app.use(notFoundHandler);
