@@ -1,0 +1,262 @@
+/* Trang chủ: thẻ "Đặt lịch chỉ với 3 bước" và khối "Đặt lịch nhanh". Chỉ dùng biến trong tokens.css. */
+
+/* ---------------- Hero: 3 bước ---------------- */
+.steps-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.steps-card h2 {
+  font-size: var(--font-size-h3);
+  letter-spacing: 0;
+}
+
+.steps-vertical {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.steps-vertical li {
+  display: grid;
+  grid-template-columns: var(--mark-size) minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.steps-vertical h3 {
+  font-size: var(--font-size-body);
+}
+
+.steps-vertical p {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Đặt lịch nhanh ---------------- */
+.scheduler {
+  background: var(--color-bg);
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.scheduler-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.scheduler-doctor {
+  flex: 0 1 calc(var(--card-min) * 1.6);
+  min-width: min(100%, var(--card-min));
+}
+
+.scheduler-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .scheduler-body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.scheduler-panel {
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  padding: var(--space-2);
+  min-width: 0;
+}
+
+.scheduler-times {
+  max-height: var(--scheduler-panel-max);
+  overflow-y: auto;
+}
+
+.scheduler-panel-title {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.scheduler-empty {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  padding: var(--space-2) 0;
+}
+
+.time-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--slot-min), 1fr));
+  gap: var(--space-1);
+}
+
+.time-slot {
+  min-height: var(--control-height-sm);
+  border: var(--border-hairline);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+
+.time-slot:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.time-slot[aria-pressed='true'] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow: 0 0 0 var(--focus-width) var(--color-primary-tint);
+}
+
+.scheduler-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  border-top: var(--border-hairline);
+  padding-top: var(--space-2);
+}
+
+/* ---------------- Lịch tháng (react-day-picker) ---------------- */
+.calendar {
+  font-size: var(--font-size-small);
+}
+
+.calendar .rdp-months {
+  position: relative;
+}
+
+.calendar .rdp-nav {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: var(--control-height-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.calendar .rdp-button_previous,
+.calendar .rdp-button_next {
+  pointer-events: auto;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  border: var(--border-hairline);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  color: var(--color-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color var(--transition);
+}
+
+.calendar .rdp-button_previous:hover:not(:disabled),
+.calendar .rdp-button_next:hover:not(:disabled) {
+  border-color: var(--color-primary);
+}
+
+.calendar .rdp-button_previous:disabled,
+.calendar .rdp-button_next:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.calendar .rdp-month_caption {
+  height: var(--control-height-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-body);
+}
+
+.calendar .rdp-caption_label::first-letter {
+  text-transform: uppercase;
+}
+
+.calendar .rdp-month_grid {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-1);
+}
+
+.calendar .rdp-weekday {
+  height: var(--control-height-sm);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.calendar .rdp-day {
+  padding: calc(var(--space-1) / 4);
+  text-align: center;
+}
+
+.calendar .rdp-day_button {
+  width: 100%;
+  max-width: var(--control-height);
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.calendar .rdp-day_button:hover:not(:disabled) {
+  background: var(--color-bg-subtle);
+}
+
+.calendar .rdp-today .rdp-day_button {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.calendar .rdp-selected .rdp-day_button,
+.calendar .rdp-selected .rdp-day_button:hover {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.calendar .rdp-outside .rdp-day_button {
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+}
+
+.calendar .rdp-disabled .rdp-day_button {
+  color: var(--color-text-secondary);
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.calendar .rdp-hidden {
+  visibility: hidden;
+}
