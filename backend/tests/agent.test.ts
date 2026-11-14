@@ -7,11 +7,15 @@ import { setLlmClient } from '../src/modules/chat/llm.js';
 import { agentTools, toolDefinitionsForModel } from '../src/modules/chat/tools.js';
 import { authHeader, createDoctor, createSpecialty, createUser, resetDb, vnIso, workingDate } from './helpers.js';
 import { ScriptedLlm, textStep, toolCallStep } from './fake-llm.js';
+import { sentMails } from './fake-mailer.js';
 
 const app = createApp();
 const REASON = 'Nổi mẩn đỏ và ngứa ở tay';
 
-beforeEach(resetDb);
+beforeEach(async () => {
+  await resetDb();
+  sentMails.length = 0;
+});
 afterEach(() => setLlmClient(null));
 afterAll(() => prisma.$disconnect());
 
@@ -155,10 +159,18 @@ describe('Vòng lặp agent với model giả lập', () => {
     const restored = await request(app).get(`/api/chat/sessions/${sessionId}/messages`).set(authHeader(patient));
     expect(restored.body.pendingAction.id).toBe(res.body.pendingAction.id);
 
+    expect(sentMails).toHaveLength(0);
     const confirm = await request(app).post(`/api/chat/actions/${res.body.pendingAction.id}/confirm`).set(authHeader(patient));
     expect(confirm.status).toBe(200);
     expect(confirm.body.appointment).toMatchObject({ startTime, status: 'CONFIRMED', createdVia: 'CHATBOT' });
     expect(confirm.body.message.content).toContain('Đã đặt lịch thành công');
+
+    // Đặt qua trợ lý cũng gửi email xác nhận (không kèm lý do khám).
+    expect(sentMails).toHaveLength(1);
+    expect(sentMails[0]).toMatchObject({ to: patient.email });
+    expect(sentMails[0]!.text).toContain('Lê Minh Châu');
+    expect(sentMails[0]!.text).toContain('trợ lý AI');
+    expect(sentMails[0]!.text).not.toContain(REASON);
 
     const appointments = await prisma.appointment.findMany();
     expect(appointments).toHaveLength(1);

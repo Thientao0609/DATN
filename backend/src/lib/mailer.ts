@@ -56,6 +56,20 @@ export function getMailer(): Mailer {
   return current;
 }
 
+/**
+ * Gửi email mà không ném lỗi: gọi sau khi thao tác đã ghi xong, nên lỗi gửi mail chỉ được ghi log
+ * (không log nội dung) chứ không làm hỏng thao tác. Trả true nếu gửi được.
+ */
+export async function sendMailSafely(message: MailMessage, label: string): Promise<boolean> {
+  try {
+    await getMailer().send(message);
+    return true;
+  } catch (err) {
+    console.error(`[mail] Gửi email ${label} thất bại:`, err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
 /** Thay bộ gửi (dùng trong test). Truyền null để quay về mặc định. */
 export function setMailer(mailer: Mailer | null): void {
   current = mailer;

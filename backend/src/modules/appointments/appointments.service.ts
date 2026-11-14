@@ -7,10 +7,10 @@
  * hoặc từ chối (xóa bản ghi giữ chỗ, gửi email báo cho bệnh nhân).
  */
 import { AppointmentStatus, CreatedVia, Prisma, Role } from '@prisma/client';
-import { env } from '../../config/env.js';
+import { env, frontendOrigins } from '../../config/env.js';
 import { prisma, type Db } from '../../lib/prisma.js';
 import { AppError, forbidden, isPrismaError, notFound } from '../../lib/errors.js';
-import { getMailer } from '../../lib/mailer.js';
+import { sendMailSafely } from '../../lib/mailer.js';
 import { noteSchema, reasonSchema } from '../../lib/validation.js';
 import {
   DAY_MS,
@@ -295,12 +295,42 @@ export async function checkBooking(input: BookingInput, now: Date = new Date()) 
   return { doctor, startTime: input.startTime, endTime: end, reason };
 }
 
+/** Email xác nhận đặt lịch. Không có lý do khám (dữ liệu sức khỏe). */
+function bookingEmail(appt: AppointmentDto, patientName: string) {
+  const start = new Date(appt.startTime);
+  const minutes = Math.round((new Date(appt.endTime).getTime() - start.getTime()) / MINUTE_MS);
+  const via = appt.createdVia === CreatedVia.CHATBOT ? 'trợ lý AI trên website' : 'form đặt lịch trên website';
+  const myAppointmentsUrl = `${frontendOrigins[0] ?? ''}/lich-hen`;
+  return {
+    subject: `[${env.CLINIC_NAME}] Xác nhận lịch khám ${formatVnDateTime(start)}`,
+    text: [
+      `Chào ${patientName},`,
+      '',
+      'Lịch khám của bạn đã được đặt thành công:',
+      '',
+      `- Bác sĩ: ${appt.doctor.fullName}`,
+      `- Chuyên khoa: ${appt.doctor.specialty.name}`,
+      `- Thời gian: ${formatVnDateTime(start)} (${minutes} phút)`,
+      `- Phí khám: ${appt.doctor.fee.toLocaleString('vi-VN')}đ`,
+      `- Đặt qua: ${via}`,
+      '',
+      `Bạn có thể xem, đổi hoặc hủy lịch tại mục "Lịch hẹn của tôi": ${myAppointmentsUrl}`,
+      `Đổi hoặc hủy lịch online cần thực hiện trước giờ khám ít nhất ${BOOKING_RULES.minChangeHours} giờ.`,
+      '',
+      'Nếu bạn không đặt lịch này, vui lòng liên hệ phòng khám.',
+      '',
+      env.CLINIC_NAME,
+    ].join('\n'),
+  };
+}
+
+/** Đặt lịch (form và trợ lý AI dùng chung), rồi gửi email xác nhận cho bệnh nhân. */
 export async function createAppointment(
   input: BookingInput & { createdVia?: CreatedVia },
   now: Date = new Date(),
 ): Promise<AppointmentDto> {
   const reason = reasonSchema.parse(input.reason);
-  return runBookingTx(async (tx) => {
+  const { dto, patient } = await runBookingTx(async (tx) => {
     await lockPatient(tx, input.patientId);
     const doctor = await tx.doctor.findUnique({ where: { id: input.doctorId }, select: { id: true, slotMinutes: true } });
     if (!doctor) throw notFound('Không tìm thấy bác sĩ.');
@@ -321,8 +351,12 @@ export async function createAppointment(
       },
       include: appointmentInclude,
     });
-    return toAppointmentDto(created);
+    const patient = await tx.user.findUniqueOrThrow({ where: { id: input.patientId }, select: { email: true, fullName: true } });
+    return { dto: toAppointmentDto(created), patient };
   });
+  // Không chờ gửi xong: phản hồi đặt lịch không phải đợi SMTP; lỗi gửi chỉ được ghi log.
+  void sendMailSafely({ to: patient.email, ...bookingEmail(dto, patient.fullName) }, 'xác nhận đặt lịch');
+  return dto;
 }
 
 // ---------------------------------------------------------------------------
@@ -475,13 +509,7 @@ export async function rejectReschedule(appointmentId: string, rejectReason: stri
     };
   });
   // Gửi email sau khi đã ghi xong; lỗi gửi mail không làm hỏng thao tác từ chối.
-  let emailSent = false;
-  try {
-    await getMailer().send(mail);
-    emailSent = true;
-  } catch (err) {
-    console.error('[mail] Gửi email từ chối đổi lịch thất bại:', err instanceof Error ? err.message : err);
-  }
+  const emailSent = await sendMailSafely(mail, 'từ chối đổi lịch');
   return { appointment: dto, emailSent };
 }
 

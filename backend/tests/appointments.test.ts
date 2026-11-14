@@ -1,7 +1,8 @@
 import request from 'supertest';
 import { AppointmentStatus, Role } from '@prisma/client';
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
+import { setMailer } from '../src/lib/mailer.js';
 import { prisma } from '../src/lib/prisma.js';
 import { HOUR_MS, MINUTE_MS } from '../src/lib/time.js';
 import { getAvailableSlots } from '../src/modules/appointments/appointments.service.js';
@@ -104,6 +105,54 @@ describe('Đặt lịch', () => {
     });
     const stored = await prisma.appointment.findFirstOrThrow({ where: { id: res.body.appointment.id } });
     expect(stored.activeKey).toBe(1);
+  });
+
+  it('đặt thành công gửi email xác nhận cho bệnh nhân, không kèm lý do khám', async () => {
+    const da = await createSpecialty('Da liễu');
+    const { doctor } = await createDoctor({ specialtyId: da.id, fullName: 'Phạm Thu Dung', fee: 250_000 });
+    const patient = await createUser(Role.PATIENT, { fullName: 'Nguyễn Thị Mai', email: 'mai@test.local' });
+    const other = await createUser();
+    const date = workingDate(2);
+    sentMails.length = 0;
+
+    expect((await book(patient, doctor.id, vnIso(date, '08:00'))).status).toBe(201);
+    expect(sentMails).toHaveLength(1);
+    const mail = sentMails[0]!;
+    expect(mail.to).toBe('mai@test.local');
+    expect(mail.subject).toContain('Xác nhận lịch khám');
+    expect(mail.subject).toContain('08:00');
+    expect(mail.text).toContain('Chào Nguyễn Thị Mai');
+    expect(mail.text).toContain('Bác sĩ: Phạm Thu Dung');
+    expect(mail.text).toContain('Chuyên khoa: Da liễu');
+    expect(mail.text).toContain('(30 phút)');
+    expect(mail.text).toContain('250.000đ');
+    expect(mail.text).toContain('form đặt lịch');
+    expect(mail.text).toContain('/lich-hen');
+    expect(mail.text).not.toContain(REASON);
+
+    // Đặt không thành công (khung đã có người đặt) thì không gửi email.
+    expect((await book(other, doctor.id, vnIso(date, '08:00'))).status).toBe(409);
+    expect(sentMails).toHaveLength(1);
+  });
+
+  it('lỗi gửi email không làm hỏng việc đặt lịch', async () => {
+    const { doctor } = await createDoctor();
+    const patient = await createUser();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    setMailer({
+      send: async () => {
+        throw new Error('SMTP không kết nối được');
+      },
+    });
+    try {
+      const res = await book(patient, doctor.id, vnIso(workingDate(2), '08:00'));
+      expect(res.status).toBe(201);
+      expect(await prisma.appointment.count()).toBe(1);
+      await vi.waitFor(() => expect(errors).toHaveBeenCalledWith('[mail] Gửi email xác nhận đặt lịch thất bại:', 'SMTP không kết nối được'));
+    } finally {
+      setMailer({ send: async (m) => void sentMails.push(m) });
+      errors.mockRestore();
+    }
   });
 
   it('startTime lệch khung, quá 30 ngày hoặc trong vòng 60 phút trả SLOT_INVALID', async () => {
