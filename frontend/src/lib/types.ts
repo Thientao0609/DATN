@@ -175,3 +175,13 @@ export interface RescheduleRequest {
   requestedAt: string;
   createdVia: CreatedVia;
 }
+
+/** Một lịch khám trên lịch công khai: chỉ bác sĩ, chuyên khoa và giờ (không có bệnh nhân). */
+export interface CalendarEvent {
+  startTime: string;
+  endTime: string;
+  /** BOOKED: đã có người đặt; HELD: đang giữ chỗ cho yêu cầu đổi lịch; COMPLETED: đã khám. */
+  state: 'BOOKED' | 'HELD' | 'COMPLETED';
+  doctor: { id: string; fullName: string };
+  specialty: { id: string; name: string };
+}

@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon';
 import { CLINIC } from '../components/Layout';
 import { useApp } from '../context/AppContext';
 import { api } from '../lib/api';
+import { normalizeVi as normalize } from '../lib/text';
 import type { ClinicInfo } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 
@@ -20,16 +21,6 @@ interface FaqGroup {
   id: string;
   title: string;
   items: Faq[];
-}
-
-/** Bỏ dấu tiếng Việt, chữ thường — để tìm "huy lich" vẫn ra "Hủy lịch". */
-function normalize(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase();
 }
 
 function faq(id: string, question: string, text: string, extra?: ReactNode): Faq {

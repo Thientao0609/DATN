@@ -659,3 +659,45 @@ export async function listAppointmentsForAdmin(filter: { from: string; to: strin
     patient: a.patient,
   }));
 }
+
+// ---------------------------------------------------------------------------
+// Lịch khám công khai (trang Đặt lịch): chỉ bác sĩ, chuyên khoa và giờ — không có bệnh nhân
+// ---------------------------------------------------------------------------
+
+export type CalendarState = 'BOOKED' | 'HELD' | 'COMPLETED';
+
+/**
+ * Các lịch khám chưa hủy trong khoảng ngày (giờ Việt Nam), tối đa 62 ngày.
+ * Không trả thông tin bệnh nhân, lý do khám hay mã lịch hẹn.
+ */
+export async function listPublicCalendar(filter: { from: string; to: string; doctorId?: string; specialtyId?: string }) {
+  if (!isValidDateString(filter.from) || !isValidDateString(filter.to)) {
+    throw new AppError('VALIDATION_ERROR', 'Ngày không hợp lệ, dùng định dạng YYYY-MM-DD.');
+  }
+  const start = vnDateMinutesToUtc(filter.from, 0);
+  const end = new Date(vnDateMinutesToUtc(filter.to, 0).getTime() + DAY_MS);
+  if (end <= start) throw new AppError('VALIDATION_ERROR', 'Ngày kết thúc phải từ ngày bắt đầu trở đi.');
+  if (end.getTime() - start.getTime() > 62 * DAY_MS) throw new AppError('VALIDATION_ERROR', 'Chỉ xem tối đa 62 ngày một lần.');
+  const rows = await prisma.appointment.findMany({
+    where: {
+      activeKey: 1,
+      startTime: { gte: start, lt: end },
+      ...(filter.doctorId ? { doctorId: filter.doctorId } : {}),
+      ...(filter.specialtyId ? { doctor: { specialtyId: filter.specialtyId } } : {}),
+    },
+    select: {
+      startTime: true,
+      endTime: true,
+      status: true,
+      doctor: { select: { id: true, user: { select: { fullName: true } }, specialty: { select: { id: true, name: true } } } },
+    },
+    orderBy: { startTime: 'asc' },
+  });
+  return rows.map((a) => ({
+    startTime: toVnIso(a.startTime),
+    endTime: toVnIso(a.endTime),
+    state: (a.status === AppointmentStatus.PENDING ? 'HELD' : a.status === AppointmentStatus.COMPLETED ? 'COMPLETED' : 'BOOKED') as CalendarState,
+    doctor: { id: a.doctor.id, fullName: a.doctor.user.fullName },
+    specialty: a.doctor.specialty,
+  }));
+}

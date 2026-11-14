@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
+import { EventCalendar } from '../components/EventCalendar';
 import { DateChips, SlotGrid, defaultBookingDate, upcomingDates } from '../components/SlotPicker';
 import { ErrorAlert, Spinner } from '../components/common';
 import { useApp } from '../context/AppContext';
@@ -34,6 +35,7 @@ export function BookingPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [booked, setBooked] = useState<Appointment | null>(null);
+  const doctorSelectRef = useRef<HTMLSelectElement>(null);
 
   // Bác sĩ chọn sẵn từ đường dẫn: suy ra chuyên khoa.
   useEffect(() => {
@@ -148,6 +150,7 @@ export function BookingPage() {
             <label className="field">
               <span className="field-label">2. Bác sĩ</span>
               <select
+                ref={doctorSelectRef}
                 className="select"
                 value={doctorId}
                 onChange={(e) => {
@@ -218,6 +221,32 @@ export function BookingPage() {
             )}
           </div>
         </form>
+      )}
+
+      {catalog.data && (
+        <section className="stack-lg booking-calendar" aria-labelledby="booking-calendar-title">
+          <div className="page-header">
+            <h2 id="booking-calendar-title">Lịch khám của phòng khám</h2>
+            <p className="muted">Xem các khung giờ đã có người đặt của từng bác sĩ để chọn giờ phù hợp. Chỉ hiển thị bác sĩ khám, thông tin bệnh nhân được bảo mật.</p>
+          </div>
+          <EventCalendar
+            doctors={catalog.data.doctors}
+            specialties={catalog.data.specialties}
+            refreshKey={reloadKey}
+            onPickDoctor={(id) => {
+              const d = catalog.data?.doctors.find((x) => x.id === id);
+              if (d) setSpecialtyId(d.specialty.id);
+              setDoctorId(id);
+              setSlot(null);
+              setPreferredStart(null);
+              // Chờ hộp thoại đóng (nó trả focus về thẻ lịch), rồi đưa focus và cuộn lên form.
+              window.setTimeout(() => {
+                doctorSelectRef.current?.focus({ preventScroll: true });
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }, 0);
+            }}
+          />
+        </section>
       )}
     </div>
   );

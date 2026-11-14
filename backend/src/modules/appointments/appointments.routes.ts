@@ -5,6 +5,8 @@ import * as controller from './appointments.controller.js';
 
 export function appointmentsRoutes(): Router {
   const router = Router();
+  // Công khai, đặt trước requireAuth.
+  router.get('/calendar', controller.calendar);
   router.use(requireAuth);
   router.post('/', requireRole(Role.PATIENT), controller.create);
   router.get('/me', requireRole(Role.PATIENT, Role.DOCTOR), controller.listMine);

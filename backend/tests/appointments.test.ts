@@ -419,3 +419,33 @@ describe('Yêu cầu đổi lịch chờ admin duyệt', () => {
     expect(stats.body.totals).toMatchObject({ appointments: 1, confirmed: 1, pendingReschedules: 1 });
   });
 });
+
+describe('Lịch khám công khai trên trang Đặt lịch', () => {
+  it('ai cũng xem được; chỉ có bác sĩ, chuyên khoa, giờ; không có bệnh nhân, lý do hay mã lịch', async () => {
+    const tmh = await createSpecialty('Tai mũi họng');
+    const { doctor } = await createDoctor({ specialtyId: tmh.id, fullName: 'Hoàng Quốc Huy' });
+    const { doctor: other } = await createDoctor({ fullName: 'Bác sĩ Khác' });
+    const patient = await createUser(Role.PATIENT, { fullName: 'BENH_NHAN_BI_MAT' });
+    const date = workingDate(2);
+    const keep = (await book(patient, doctor.id, vnIso(date, '08:00'), 'LY_DO_BI_MAT_1')).body.appointment.id;
+    const cancelled = (await book(patient, doctor.id, vnIso(date, '09:00'), 'LY_DO_BI_MAT_2')).body.appointment.id;
+    await request(app).patch(`/api/appointments/${cancelled}/cancel`).set(authHeader(patient)).send({ cancelReason: CANCEL_REASON });
+    await requestChange(patient, keep, vnIso(date, '10:00'));
+    await book(patient, other.id, vnIso(date, '14:00'), 'LY_DO_BI_MAT_3');
+
+    const res = await request(app).get('/api/appointments/calendar').query({ from: date, to: date });
+    expect(res.status).toBe(200);
+    expect(res.body.events).toEqual([
+      { startTime: vnIso(date, '08:00'), endTime: vnIso(date, '08:30'), state: 'BOOKED', doctor: { id: doctor.id, fullName: 'Hoàng Quốc Huy' }, specialty: { id: tmh.id, name: 'Tai mũi họng' } },
+      expect.objectContaining({ startTime: vnIso(date, '10:00'), state: 'HELD' }),
+      expect.objectContaining({ startTime: vnIso(date, '14:00'), state: 'BOOKED', doctor: { id: other.id, fullName: 'Bác sĩ Khác' } }),
+    ]);
+    const raw = JSON.stringify(res.body);
+    expect(raw).not.toMatch(/BENH_NHAN_BI_MAT|LY_DO_BI_MAT|patient|reason/);
+    expect(raw).not.toContain(keep);
+
+    const bySpecialty = await request(app).get('/api/appointments/calendar').query({ from: date, to: date, specialtyId: tmh.id });
+    expect(bySpecialty.body.events).toHaveLength(2);
+    expect((await request(app).get('/api/appointments/calendar').query({ from: date })).status).toBe(400);
+  });
+});

@@ -1,0 +1,550 @@
+/* Lịch khám công khai trên trang Đặt lịch. Chỉ dùng biến trong tokens.css, một màu nhấn duy nhất. */
+.ec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ec-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ec-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ec-title {
+  font-size: var(--font-size-h3);
+  min-width: calc(var(--card-min) * 0.9);
+}
+
+.ec-nav-btn {
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  border: var(--border-hairline);
+  border-radius: var(--radius-control);
+}
+
+.ec-view-select {
+  display: none;
+}
+
+.ec-view-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+@media (max-width: 640px) {
+  .ec-view-select {
+    display: block;
+  }
+  .ec-view-tabs {
+    display: none;
+  }
+}
+
+/* Tìm kiếm và bộ lọc */
+.ec-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ec-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ec-search > svg {
+  position: absolute;
+  left: var(--space-2);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.ec-search .input {
+  padding-left: var(--space-5);
+  padding-right: var(--space-5);
+}
+
+.ec-search-clear {
+  position: absolute;
+  right: calc(var(--space-1) / 2);
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+}
+
+.ec-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.ec-filter {
+  position: relative;
+}
+
+.ec-count {
+  min-width: var(--badge-height);
+  height: var(--badge-height);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
+  font-size: var(--font-size-caption);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ec-filter-panel {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 10;
+  min-width: calc(var(--card-min) * 0.9);
+  max-height: var(--scheduler-panel-max);
+  overflow-y: auto;
+  background: var(--color-bg);
+  border: var(--border-hairline);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-float);
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+}
+
+.ec-filter-title {
+  padding: var(--space-1);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.ec-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-height-sm);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+}
+
+.ec-check:hover {
+  background: var(--color-bg-subtle);
+}
+
+.ec-check input {
+  accent-color: var(--color-primary);
+}
+
+.ec-active {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.ec-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space-1) / 2);
+  min-height: var(--badge-height);
+  padding: 0 calc(var(--space-1) / 2) 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-subtle);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ec-tag button {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  cursor: pointer;
+  border-radius: var(--radius-pill);
+}
+
+.ec-tag button:hover {
+  color: var(--color-text);
+}
+
+/* Khung chung */
+.ec-card {
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  background: var(--color-bg);
+}
+
+.ec-scroll {
+  overflow-x: auto;
+}
+
+.ec-empty {
+  padding: var(--space-6) var(--space-2);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+/* Xem theo tháng */
+.ec-month-head,
+.ec-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.ec-month-head {
+  border-bottom: var(--border-hairline);
+}
+
+.ec-month-head div {
+  padding: var(--space-1);
+  text-align: center;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.ec-day {
+  min-height: calc(var(--control-height) * 2.2);
+  padding: calc(var(--space-1) / 2);
+  border-right: var(--border-hairline);
+  border-bottom: var(--border-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+  min-width: 0;
+  transition: background var(--transition);
+}
+
+.ec-day:nth-child(7n) {
+  border-right: 0;
+}
+
+.ec-day:nth-last-child(-n + 7) {
+  border-bottom: 0;
+}
+
+.ec-day:hover {
+  background: var(--color-bg-subtle);
+}
+
+.ec-day-outside {
+  background: var(--color-bg-subtle);
+}
+
+.ec-day-outside .ec-day-num {
+  color: var(--color-text-secondary);
+}
+
+.ec-day-num {
+  width: var(--badge-height);
+  height: var(--badge-height);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-caption);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ec-day-today {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ec-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+  min-width: 0;
+}
+
+.ec-more {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-size: var(--font-size-caption);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+/* Xem theo tuần / ngày */
+.ec-hours {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
+  min-width: calc(var(--card-min) * 2.2);
+}
+
+.ec-hours th,
+.ec-hours td {
+  border-bottom: var(--border-hairline);
+  border-right: var(--border-hairline);
+  vertical-align: top;
+  text-align: left;
+}
+
+.ec-hours th:last-child,
+.ec-hours td:last-child {
+  border-right: 0;
+}
+
+.ec-hours tbody tr:last-child th,
+.ec-hours tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ec-hours thead th {
+  padding: var(--space-1);
+  background: var(--color-bg-subtle);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ec-hours thead th span {
+  display: block;
+}
+
+.ec-col-today span:first-child {
+  color: var(--color-primary);
+}
+
+.ec-hour-col {
+  width: calc(var(--slot-min) * 0.75);
+  padding: var(--space-1);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-regular);
+  white-space: nowrap;
+}
+
+.ec-cell {
+  min-height: var(--control-height);
+  padding: calc(var(--space-1) / 2);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+}
+
+/* Danh sách */
+.ec-list {
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ec-list-date {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+}
+
+.ec-list-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.ec-list-item:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.ec-list-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ec-dot {
+  width: var(--space-1);
+  height: var(--space-1);
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+}
+
+/* Thẻ sự kiện */
+.ev-wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.ev {
+  width: 100%;
+  border: var(--border-hairline);
+  border-color: transparent;
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-caption);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.ev:hover {
+  box-shadow: var(--shadow-card);
+}
+
+.ev-compact,
+.ev-default {
+  display: block;
+  padding: calc(var(--space-1) / 2) var(--space-1);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ev-detailed {
+  padding: var(--space-1) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+  font-size: var(--font-size-small);
+}
+
+.ev-title {
+  font-weight: var(--font-weight-semibold);
+}
+
+.ev-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space-1) / 2);
+  font-size: var(--font-size-caption);
+}
+
+.ev-time {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+/* Trạng thái: đã đặt (màu nhấn), đang giữ chỗ (viền nét đứt), đã khám (xám) */
+.ev-booked {
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
+}
+
+.ev-held {
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-color: var(--color-border);
+  border-style: dashed;
+}
+
+.ev-completed {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+}
+
+.ec-dot.ev-booked {
+  background: var(--color-primary);
+}
+
+.ec-dot.ev-held {
+  background: var(--color-border);
+}
+
+.ec-dot.ev-completed {
+  background: var(--color-text-secondary);
+}
+
+.ev-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--badge-height);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.ev-state-booked {
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
+}
+
+.ev-state-held {
+  border: var(--border-hairline);
+  border-style: dashed;
+  color: var(--color-text);
+}
+
+.ev-state-completed {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+}
+
+/* Ô thông tin khi rê chuột */
+.ev-pop {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: calc(100% + calc(var(--space-1) / 2));
+  z-index: 20;
+  width: calc(var(--card-min) * 1.05);
+  padding: var(--space-2);
+  background: var(--color-bg);
+  border: var(--border-hairline);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-float);
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+  font-size: var(--font-size-small);
+  color: var(--color-text);
+  pointer-events: none;
+}
+
+.ev-pop-row {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space-1) / 2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+
+.ev-pop .ev-state {
+  align-self: flex-start;
+}
+
+.ev-wrap:hover .ev-pop,
+.ev-wrap:focus-within .ev-pop {
+  display: flex;
+  animation: fade-in var(--transition);
+}
+
+@media (hover: none) {
+  .ev-wrap:hover .ev-pop {
+    display: none;
+  }
+}
+
+.booking-calendar {
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: var(--border-hairline);
+}

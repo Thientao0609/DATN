@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { CreatedVia } from '@prisma/client';
 import { currentUser } from '../../middleware/auth.js';
 import { idParamsSchema, toDate } from '../../lib/validation.js';
-import { cancelSchema, createAppointmentSchema, listQuerySchema, rescheduleSchema } from './appointments.schema.js';
+import { calendarQuerySchema, cancelSchema, createAppointmentSchema, listQuerySchema, rescheduleSchema } from './appointments.schema.js';
 import * as service from './appointments.service.js';
 
 export async function create(req: Request, res: Response) {
@@ -45,4 +45,9 @@ export async function cancel(req: Request, res: Response) {
 export async function complete(req: Request, res: Response) {
   const { id } = idParamsSchema.parse(req.params);
   res.json({ appointment: await service.completeAppointment({ doctorUserId: currentUser(req).id, appointmentId: id }) });
+}
+
+/** Lịch khám công khai cho trang Đặt lịch: chỉ tên bác sĩ, chuyên khoa và giờ. */
+export async function calendar(req: Request, res: Response) {
+  res.json({ events: await service.listPublicCalendar(calendarQuerySchema.parse(req.query)) });
 }
