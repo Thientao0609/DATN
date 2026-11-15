@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +12,8 @@ export function ChatWidget() {
   const { chatOpen, openChat, closeChat } = useApp();
   const { user, loading } = useAuth();
   const location = useLocation();
+  // Trạng thái ở đầu khung chat theo lần trả lời gần nhất: model lỗi thì không ghi "Đang trực tuyến".
+  const [available, setAvailable] = useState(true);
 
   useEffect(() => {
     if (!chatOpen) return;
@@ -47,7 +49,8 @@ export function ChatWidget() {
         <div className="chat-title">
           <h2>Trợ lý An Tâm</h2>
           <span className="caption">
-            <span className="online-dot" aria-hidden="true" /> Đang trực tuyến ·{' '}
+            <span className={available ? 'online-dot' : 'online-dot online-dot-off'} aria-hidden="true" />{' '}
+            {available ? 'Đang trực tuyến' : 'Tạm gián đoạn'} ·{' '}
             <a href={`tel:${CLINIC.hotlineTel}`}>
               <Icon name="phone" size={12} /> {CLINIC.hotline}
             </a>
@@ -61,7 +64,7 @@ export function ChatWidget() {
         Trợ lý chỉ gợi ý chuyên khoa, không thay thế chẩn đoán của bác sĩ. Cấp cứu: gọi 115.
       </p>
       {loading ? null : user ? (
-        <ChatPanel />
+        <ChatPanel onAvailabilityChange={setAvailable} />
       ) : (
         <div className="chat-body chat-login">
           <div className="chat-bubble chat-bubble-bot">

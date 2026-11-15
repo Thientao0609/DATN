@@ -168,6 +168,18 @@ textarea {
   gap: var(--space-2);
 }
 
+/* Ảnh đại diện cạnh tên: tên dài xuống dòng ngay bên cạnh ảnh thay vì rớt xuống dưới ảnh. */
+.media {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.media > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+
 .grid {
   display: grid;
   gap: var(--space-2);
@@ -294,8 +306,34 @@ textarea {
   color: var(--color-text);
 }
 
+/* Màn hình hẹp: tên người dùng và nút Đăng xuất nằm trong menu để thanh trên không tràn ngang. */
+.nav-account {
+  display: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.nav-drawer-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: var(--border-hairline);
+}
+
+.nav-drawer-account .nav-user {
+  max-width: none;
+  flex: 1;
+  min-width: 0;
+}
+
 @media (min-width: 900px) {
   .nav-links {
+    display: flex;
+  }
+  .nav-account {
     display: flex;
   }
   .nav .nav-toggle,
@@ -442,6 +480,12 @@ textarea {
   color: var(--color-text);
   text-decoration: none;
   border-color: var(--color-primary);
+}
+
+/* Thẻ trong lưới cao bằng nhau theo hàng: đẩy nút/liên kết cuối thẻ xuống đáy để các thẻ thẳng hàng. */
+.grid > .card.stack > :last-child,
+.grid > .card-link > :last-child {
+  margin-top: auto;
 }
 
 /* ---------------- Ô nhập ---------------- */
@@ -790,6 +834,13 @@ textarea {
   margin-right: var(--space-1);
 }
 
+/* Điện thoại: hai nút của Hero xếp dọc, rộng bằng nhau (nút thứ hai không bị thụt vào khi xuống dòng). */
+@media (max-width: 520px) {
+  .hero-actions > .btn {
+    flex: 1 1 100%;
+  }
+}
+
 .steps {
   list-style: none;
   padding: 0;
@@ -1036,6 +1087,10 @@ textarea {
   height: var(--space-1);
   border-radius: var(--radius-pill);
   background: var(--color-success);
+}
+
+.online-dot-off {
+  background: var(--color-text-secondary);
 }
 
 .chat-note {

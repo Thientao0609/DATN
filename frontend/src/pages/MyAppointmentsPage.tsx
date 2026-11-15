@@ -7,6 +7,7 @@ import { ApiError, api, errorMessage } from '../lib/api';
 import { formatDateTime, formatMoney, todayVn, vnDate } from '../lib/time';
 import type { Appointment, Slot } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { usePageTitle } from '../lib/usePageTitle';
 
 type Tab = 'upcoming' | 'past' | 'cancelled';
 const TABS: { id: Tab; label: string }[] = [
@@ -187,6 +188,7 @@ function ReasonCards({ a }: { a: Appointment }) {
 }
 
 export function MyAppointmentsPage() {
+  usePageTitle('Lịch hẹn của tôi');
   const { appointmentsVersion, notifyAppointmentsChanged } = useApp();
   const [tab, setTab] = useState<Tab>('upcoming');
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);

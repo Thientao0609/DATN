@@ -68,12 +68,6 @@
   gap: var(--space-2);
 }
 
-@media (min-width: 768px) {
-  .scheduler-body {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-}
-
 .scheduler-panel {
   border: var(--border-hairline);
   border-radius: var(--radius-card);
@@ -81,9 +75,17 @@
   min-width: 0;
 }
 
-.scheduler-times {
-  max-height: var(--scheduler-panel-max);
-  overflow-y: auto;
+/* Một cột (điện thoại): danh sách giờ dài theo trang, không cuộn lồng trong khung.
+   Hai cột: khung giờ cao đúng bằng khung lịch (contain: size để nó không kéo hàng cao thêm),
+   nhiều giờ thì cuộn trong khung. */
+@media (min-width: 768px) {
+  .scheduler-body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .scheduler-times {
+    contain: size;
+    overflow-y: auto;
+  }
 }
 
 .scheduler-panel-title {

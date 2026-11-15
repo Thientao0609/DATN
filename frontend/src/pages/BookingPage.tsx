@@ -9,8 +9,10 @@ import { ApiError, api, errorMessage } from '../lib/api';
 import { formatDateTime, formatMoney } from '../lib/time';
 import type { Appointment, Doctor, Slot, Specialty } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { usePageTitle } from '../lib/usePageTitle';
 
 export function BookingPage() {
+  usePageTitle('Đặt lịch khám');
   const { user } = useAuth();
   const { notifyAppointmentsChanged } = useApp();
   const location = useLocation();
@@ -167,7 +169,7 @@ export function BookingPage() {
                 ))}
               </select>
             </label>
-            {doctor && (
+            {doctor ? (
               <>
                 <DateChips
                   label="3. Ngày khám"
@@ -183,6 +185,11 @@ export function BookingPage() {
                   <SlotGrid doctorId={doctor.id} date={date} value={selected} onChange={onSlotChange} reloadKey={reloadKey} />
                 </div>
               </>
+            ) : (
+              <div className="field">
+                <span className="field-label">3–4. Ngày và giờ khám</span>
+                <p className="field-hint">Chọn bác sĩ để xem ngày và giờ còn trống.</p>
+              </div>
             )}
           </div>
 

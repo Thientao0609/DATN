@@ -55,14 +55,15 @@ function NavBar() {
           </nav>
           <div className="nav-actions">
             {user ? (
-              <>
+              // Màn hình hẹp: phần này ẩn, tên và nút Đăng xuất nằm trong menu bên dưới.
+              <div className="nav-account">
                 <span className="nav-user" title={user.fullName}>
                   {user.fullName}
                 </span>
                 <button type="button" className="btn btn-sm" onClick={doLogout}>
                   Đăng xuất
                 </button>
-              </>
+              </div>
             ) : (
               <Link to="/dang-nhap" className="btn btn-sm">
                 Đăng nhập
@@ -86,6 +87,16 @@ function NavBar() {
                 {l.label}
               </NavLink>
             ))}
+            {user && (
+              <div className="nav-drawer-account">
+                <span className="nav-user" title={user.fullName}>
+                  {user.fullName}
+                </span>
+                <button type="button" className="btn btn-sm btn-outline" onClick={doLogout}>
+                  Đăng xuất
+                </button>
+              </div>
+            )}
           </nav>
         )}
       </div>

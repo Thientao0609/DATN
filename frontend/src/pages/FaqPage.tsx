@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import { normalizeVi as normalize } from '../lib/text';
 import type { ClinicInfo } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { usePageTitle } from '../lib/usePageTitle';
 
 interface Faq {
   id: string;
@@ -46,8 +47,13 @@ const STATIC_GROUPS: FaqGroup[] = [
       faq(
         'cach-dat-lich',
         'Tôi đặt lịch khám như thế nào?',
-        'Vào mục Đặt lịch khám, chọn chuyên khoa, bác sĩ, ngày và khung giờ còn trống, nhập lý do khám rồi bấm Đặt lịch. Lịch được xác nhận ngay, không cần chờ phòng khám gọi lại. Bạn cũng có thể nhờ Trợ lý An Tâm đặt giúp trong khung chat.',
+        'Vào mục Đặt lịch khám, chọn chuyên khoa, bác sĩ, ngày và khung giờ còn trống, nhập lý do khám rồi bấm Đặt lịch. Lịch được xác nhận ngay, không cần chờ phòng khám gọi lại, và bạn nhận email xác nhận. Bạn cũng có thể nhờ Trợ lý An Tâm đặt giúp trong khung chat.',
         <Link to="/dat-lich">Đặt lịch khám ›</Link>,
+      ),
+      faq(
+        'email-thong-bao',
+        'Tôi có nhận email thông báo không?',
+        'Có. Phòng khám gửi email tới địa chỉ bạn dùng để đăng ký tài khoản khi đặt lịch thành công (trên web hoặc qua trợ lý) và khi yêu cầu đổi lịch không được chấp nhận. Email có bác sĩ, giờ khám và phí khám, không có lý do khám. Nếu không thấy email, hãy xem thư mục Spam hoặc mục Lịch hẹn của tôi.',
       ),
       faq(
         'tai-khoan',
@@ -79,8 +85,13 @@ const STATIC_GROUPS: FaqGroup[] = [
       faq(
         'cach-doi-huy',
         'Làm sao để đổi hoặc hủy lịch?',
-        'Vào Lịch hẹn của tôi, chọn Đổi lịch hoặc Hủy lịch ở lịch muốn thay đổi. Bạn cũng có thể nhắn cho Trợ lý An Tâm, trợ lý sẽ gửi thẻ xác nhận để bạn bấm Đồng ý.',
+        'Vào Lịch hẹn của tôi, chọn Đổi lịch hoặc Hủy lịch ở lịch muốn thay đổi và ghi lý do (từ 5 đến 500 ký tự). Bạn cũng có thể nhắn cho Trợ lý An Tâm, trợ lý sẽ gửi thẻ xác nhận để bạn bấm Đồng ý.',
         <Link to="/lich-hen">Lịch hẹn của tôi ›</Link>,
+      ),
+      faq(
+        'doi-lich-cho-duyet',
+        'Đổi lịch có cần phòng khám xác nhận không?',
+        'Có. Hủy lịch có hiệu lực ngay, còn đổi lịch là một yêu cầu: lịch hiện "Chờ xác nhận" cho tới khi phòng khám duyệt. Trong lúc chờ, bạn vẫn giữ giờ cũ và giờ mới cũng được giữ chỗ cho bạn. Được duyệt, lịch chuyển sang giờ mới và hiện "Đã xác nhận". Không được chấp nhận, lịch giữ nguyên giờ cũ và bạn nhận email kèm lý do.',
       ),
       faq(
         'han-doi-huy',
@@ -124,7 +135,7 @@ const STATIC_GROUPS: FaqGroup[] = [
       faq(
         'bao-mat',
         'Lý do khám của tôi có được bảo mật không?',
-        'Lý do khám là dữ liệu sức khỏe: chỉ bạn và bác sĩ khám lịch đó xem được. Quản trị viên và các số liệu thống kê không hiển thị nội dung này.',
+        'Lý do khám là dữ liệu sức khỏe: chỉ bạn và bác sĩ khám lịch đó xem được. Quản trị viên không xem được nội dung này; số liệu thống kê, email thông báo và lịch khám công khai trên trang Đặt lịch (chỉ hiện tên bác sĩ) cũng không chứa nó.',
       ),
     ],
   },
@@ -143,6 +154,7 @@ function FaqItem({ item, open }: { item: Faq; open: boolean }) {
 }
 
 export function FaqPage() {
+  usePageTitle('Câu hỏi thường gặp');
   const { openChat } = useApp();
   const [query, setQuery] = useState('');
   const info = useAsync((signal) => api.get<{ items: ClinicInfo[] }>('/clinic-info', undefined, signal), []);

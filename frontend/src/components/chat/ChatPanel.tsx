@@ -36,7 +36,12 @@ function isEmergency(text: string): boolean {
   return /\b115\b/.test(firstParagraph.slice(0, 240));
 }
 
-export function ChatPanel() {
+interface ChatPanelProps {
+  /** Báo cho phần đầu khung chat biết trợ lý đang trả lời được (true) hay model tạm không phản hồi (false). */
+  onAvailabilityChange?: (available: boolean) => void;
+}
+
+export function ChatPanel({ onAvailabilityChange }: ChatPanelProps) {
   const { notifyAppointmentsChanged, takeQueuedMessage, queuedMessage } = useApp();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -128,17 +133,16 @@ export function ChatPanel() {
         setMessages((m) => [...m, reply.message]);
         if (reply.pendingAction) attachAction(reply.message.id, reply.pendingAction);
         if (reply.slotOptions.length > 0) setSlotOptions({ afterMessageId: reply.message.id, groups: reply.slotOptions });
+        onAvailabilityChange?.(true);
       } catch (err) {
-        setError({
-          afterMessageId: temp.id,
-          message: errorMessage(err),
-          suggestForm: err instanceof ApiError && err.code === 'LLM_UNAVAILABLE',
-        });
+        const unavailable = err instanceof ApiError && err.code === 'LLM_UNAVAILABLE';
+        setError({ afterMessageId: temp.id, message: errorMessage(err), suggestForm: unavailable });
+        if (unavailable) onAvailabilityChange?.(false);
       } finally {
         setSending(false);
       }
     },
-    [sessionId, sending, attachAction],
+    [sessionId, sending, attachAction, onAvailabilityChange],
   );
 
   // Tin nhắn gửi kèm khi mở khung chat (ví dụ từ nút trên trang).

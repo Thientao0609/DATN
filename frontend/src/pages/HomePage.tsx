@@ -9,8 +9,10 @@ import { api } from '../lib/api';
 import { formatMoney } from '../lib/time';
 import type { Doctor, Specialty } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { usePageTitle } from '../lib/usePageTitle';
 
 export function HomePage() {
+  usePageTitle();
   const { openChat } = useApp();
   const { user } = useAuth();
   const data = useAsync(
@@ -34,7 +36,7 @@ export function HomePage() {
             <span className="eyebrow">Đặt lịch online 24/7</span>
             <h1>Đặt lịch khám bệnh, không cần xếp hàng lấy số</h1>
             <p>Chọn chuyên khoa và giờ khám phù hợp ngay trên web. Bạn có thể đổi hoặc hủy lịch trước giờ khám, không cần gọi điện.</p>
-            <div className="row">
+            <div className="row hero-actions">
               <Link to="/dat-lich" className="btn btn-primary">
                 Đặt lịch khám
               </Link>
@@ -128,7 +130,7 @@ export function HomePage() {
             <div className="grid">
               {data.data.doctors.slice(0, 6).map((d) => (
                 <article key={d.id} className="card stack">
-                  <div className="row" style={{ gap: 'var(--space-2)' }}>
+                  <div className="media">
                     <span className="avatar" aria-hidden="true">
                       {initials(d.fullName)}
                     </span>

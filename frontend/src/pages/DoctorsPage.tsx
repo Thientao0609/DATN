@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { formatMoney } from '../lib/time';
 import type { Doctor, Specialty, WorkingSchedule } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { usePageTitle } from '../lib/usePageTitle';
 
 const DAY_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
@@ -19,6 +20,7 @@ function scheduleSummary(schedules: WorkingSchedule[]): string {
 }
 
 export function DoctorsPage() {
+  usePageTitle('Bác sĩ');
   const [params, setParams] = useSearchParams();
   const specialtyId = params.get('specialtyId') ?? '';
   const [q, setQ] = useState(params.get('q') ?? '');
@@ -82,7 +84,7 @@ export function DoctorsPage() {
       <div className="grid">
         {doctors.data?.doctors.map((d) => (
           <article key={d.id} className="card stack">
-            <div className="row" style={{ gap: 'var(--space-2)' }}>
+            <div className="media">
               <span className="avatar" aria-hidden="true">
                 {initials(d.fullName)}
               </span>

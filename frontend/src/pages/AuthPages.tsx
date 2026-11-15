@@ -4,6 +4,7 @@ import { ErrorAlert } from '../components/common';
 import { Logo } from '../components/Logo';
 import { homeFor, useAuth } from '../context/AuthContext';
 import { errorMessage } from '../lib/api';
+import { usePageTitle } from '../lib/usePageTitle';
 
 interface FromState {
   from?: string;
@@ -17,6 +18,7 @@ function useRedirectTarget() {
 }
 
 export function LoginPage() {
+  usePageTitle('Đăng nhập');
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const { from, expired } = useRedirectTarget();
@@ -83,6 +85,7 @@ export function LoginPage() {
 }
 
 export function RegisterPage() {
+  usePageTitle('Tạo tài khoản');
   const { user, register } = useAuth();
   const navigate = useNavigate();
   const { from } = useRedirectTarget();

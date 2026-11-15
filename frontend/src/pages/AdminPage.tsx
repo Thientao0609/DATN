@@ -5,6 +5,7 @@ import { api, errorMessage } from '../lib/api';
 import { formatDateTime, formatMoney } from '../lib/time';
 import type { AdminDoctor, ClinicInfo, RescheduleRequest, Specialty, Stats, WorkingSchedule } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { usePageTitle } from '../lib/usePageTitle';
 
 type Tab = 'stats' | 'requests' | 'specialties' | 'doctors' | 'schedules' | 'clinic';
 const TABS: { id: Tab; label: string }[] = [
@@ -627,7 +628,7 @@ function ClinicInfoTab() {
   return (
     <div className="stack">
       <div className="admin-toolbar">
-        <p className="muted small">Trợ lý AI tra cứu giờ làm việc, bảng giá, hướng dẫn… từ các mục này.</p>
+        <p className="muted small">Trợ lý AI và trang Câu hỏi thường gặp (công khai) lấy giờ làm việc, bảng giá, hướng dẫn… từ các mục này.</p>
         <button type="button" className="btn btn-primary btn-sm" onClick={() => open('new')}>
           Thêm mục
         </button>
@@ -674,6 +675,7 @@ function ClinicInfoTab() {
 }
 
 export function AdminPage() {
+  usePageTitle('Quản trị');
   const [params] = useSearchParams();
   const initial = params.get('tab');
   const [tab, setTab] = useState<Tab>(TABS.some((t) => t.id === initial) ? (initial as Tab) : 'stats');

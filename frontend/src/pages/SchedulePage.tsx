@@ -22,6 +22,7 @@ import {
 } from '../lib/time';
 import type { AdminAppointment, Appointment, AppointmentStatus, CreatedVia, Doctor } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { usePageTitle } from '../lib/usePageTitle';
 
 type View = 'day' | 'week' | 'month' | 'list';
 const VIEWS: { id: View; label: string }[] = [
@@ -447,6 +448,7 @@ function DetailDialog({ appt, isDoctor, onClose, onComplete }: { appt: CalAppt; 
 // ---------------------------------------------------------------------------
 
 export function SchedulePage() {
+  usePageTitle('Lịch khám');
   const { user } = useAuth();
   const isDoctor = user?.role === 'DOCTOR';
   const [view, setView] = useState<View>('day');

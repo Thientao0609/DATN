@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { Spinner } from './components/common';
 import { useAuth } from './context/AuthContext';
 import type { Role } from './lib/types';
+import { usePageTitle } from './lib/usePageTitle';
 import { AdminPage } from './pages/AdminPage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import { BookingPage } from './pages/BookingPage';
@@ -24,19 +25,23 @@ function RequireRole({ roles, children }: { roles: Role[]; children: ReactNode }
     );
   }
   if (!user) return <Navigate to="/dang-nhap" replace state={{ from: location.pathname + location.search }} />;
-  if (!roles.includes(user.role)) {
-    return (
-      <div className="container page">
-        <h1>Không có quyền truy cập</h1>
-        <p className="muted">Tài khoản của bạn không dùng được trang này.</p>
-        <Link to="/">Về trang chủ</Link>
-      </div>
-    );
-  }
+  if (!roles.includes(user.role)) return <Forbidden />;
   return <>{children}</>;
 }
 
+function Forbidden() {
+  usePageTitle('Không có quyền truy cập');
+  return (
+    <div className="container page">
+      <h1>Không có quyền truy cập</h1>
+      <p className="muted">Tài khoản của bạn không dùng được trang này.</p>
+      <Link to="/">Về trang chủ</Link>
+    </div>
+  );
+}
+
 function NotFound() {
+  usePageTitle('Không tìm thấy trang');
   return (
     <div className="container page">
       <h1>Không tìm thấy trang</h1>
